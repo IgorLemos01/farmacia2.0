@@ -1,0 +1,60 @@
+/* ============================================================
+   DESIGN SYSTEM — FARMÁCIA COUTO (INSPIRADO NO ESTILO DONEZO)
+   Cores, tipografia, raios de borda e sombras
+   ============================================================ */
+
+:root {
+  /* --- Cores Primárias (#072162 - Azul Farmácia Couto) --- */
+  --color-primary-dark: #072162;       /* Cor principal solicitada #072162 */
+  --color-primary: #072162;            /* Cor padrão */
+  --color-primary-hover: #0d2f8a;      /* Hover do botão primário */
+  --color-primary-light: #edf2fc;      /* Fundo sutil para badges e destaques */
+  --color-primary-accent: #1d4ed8;     /* Acento azul vibrante */
+  --color-emerald: #072162;
+
+  /* --- Superfícies & Fundos --- */
+  --bg-app: #f4f6f9;                   /* Fundo geral da aplicação off-white macio */
+  --bg-sidebar: #ffffff;               /* Fundo da barra lateral */
+  --bg-card: #ffffff;                  /* Fundo dos cartões e modais */
+  --bg-input: #ffffff;                 /* Fundo de inputs e pills */
+  --bg-hover: #f5f8fc;                 /* Hover de linhas e itens */
+
+  /* --- Tipografia & Textos --- */
+  --font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --text-title: #0a1128;               /* Preto/marinho escuro para títulos de destaque */
+  --text-body: #475467;                /* Cinza grafite para leitura */
+  --text-muted: #8896ab;               /* Cinza suave para labels e subtítulos */
+  --text-light: #b0bcd0;               /* Cinza bem claro para placeholders */
+  --text-on-dark: #ffffff;             /* Texto em cima do azul escuro */
+
+  /* --- Bordas & Linhas Divisórias --- */
+  --border-light: #e8edea;             /* Linha sutil de cards e separadores */
+  --border-hover: #d2dbd5;             /* Borda ao focar/passar o mouse */
+
+  /* --- Status / Badges --- */
+  --badge-success-bg: #e6f9ed;
+  --badge-success-text: #1b7a42;
+  --badge-warning-bg: #fff8e6;
+  --badge-warning-text: #b47509;
+  --badge-danger-bg: #fde8e8;
+  --badge-danger-text: #c81e1e;
+  --badge-info-bg: #e8f4fd;
+  --badge-info-text: #1a56db;
+
+  /* --- Dimensões & Raios de Borda --- */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 26px;
+  --radius-pill: 9999px;
+
+  /* --- Sombras --- */
+  --shadow-sm: 0 1px 3px rgba(7, 33, 98, 0.05);
+  --shadow-card: 0 4px 20px -2px rgba(7, 33, 98, 0.06);
+  --shadow-hover: 0 10px 25px -4px rgba(7, 33, 98, 0.1);
+  --shadow-modal: 0 20px 45px rgba(7, 33, 98, 0.2);
+
+  /* --- Transições --- */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s ease;
+}
