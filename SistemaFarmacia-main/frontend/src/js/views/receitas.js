@@ -3,7 +3,7 @@
 // ============================================================
 
 import { api } from '../api.js';
-import { escapeHtml as esc } from '../utils.js';
+import { botoesAcoes, confirmarEExcluir, escapeHtml as esc, hojeISO, ligarAcoes } from '../utils.js';
 
 export async function renderReceitas(container) {
   const [receitas, clientes] = await Promise.all([
@@ -32,12 +32,13 @@ export async function renderReceitas(container) {
               <th>Médico Prescritor</th>
               <th>Medicamentos Prescritos</th>
               <th>Data do Atendimento</th>
+              <th style="text-align: right;">Ações</th>
             </tr>
           </thead>
           <tbody>
             ${
               receitas.length === 0
-                ? `<tr><td colspan="4" style="text-align: center; padding: 40px; color: var(--text-muted);">Nenhuma receita registrada.</td></tr>`
+                ? `<tr><td colspan="5" style="text-align: center; padding: 40px; color: var(--text-muted);">Nenhuma receita registrada.</td></tr>`
                 : receitas.map(r => `
                     <tr>
                       <td>
@@ -52,6 +53,7 @@ export async function renderReceitas(container) {
                       <td>
                         <span class="badge badge-neutral">🗓️ ${esc(r.data_venda)}</span>
                       </td>
+                      <td style="text-align: right;"><div class="row-actions">${botoesAcoes(r.id)}</div></td>
                     </tr>
                   `).join('')
             }
@@ -64,7 +66,7 @@ export async function renderReceitas(container) {
     <div class="modal-overlay" id="modalNovaReceita">
       <div class="modal-card">
         <div class="modal-header">
-          <h3 class="modal-title">Registrar Receita Médica</h3>
+          <h3 class="modal-title" id="tituloModalReceita">Registrar Receita Médica</h3>
           <button class="modal-close" id="btnFecharModalReceita">&times;</button>
         </div>
         <form id="formNovaReceita">
@@ -89,13 +91,13 @@ export async function renderReceitas(container) {
 
             <div class="form-group">
               <label class="form-label">Data da Venda / Atendimento</label>
-              <input type="date" class="form-input" id="rec_data" value="${new Date().toISOString().split('T')[0]}"/>
+              <input type="date" class="form-input" id="rec_data" value="${hojeISO()}"/>
             </div>
           </div>
 
           <div style="display: flex; justify-content: flex-end; gap: 12px;">
             <button type="button" class="btn btn-secondary" id="btnCancelarReceita">Cancelar</button>
-            <button type="submit" class="btn btn-primary">Salvar Receita</button>
+            <button type="submit" class="btn btn-primary" id="btnSalvarReceita">Salvar Receita</button>
           </div>
         </form>
       </div>
@@ -103,26 +105,59 @@ export async function renderReceitas(container) {
   `;
 
   const modal = document.getElementById('modalNovaReceita');
-  document.getElementById('btnAbrirModalReceita').onclick = () => modal.classList.add('active');
-  document.getElementById('btnFecharModalReceita').onclick = () => modal.classList.remove('active');
-  document.getElementById('btnCancelarReceita').onclick = () => modal.classList.remove('active');
+  const form = document.getElementById('formNovaReceita');
+  const selectCliente = document.getElementById('rec_cliente_id');
+  let editando = null;
 
-  document.getElementById('formNovaReceita').onsubmit = async (e) => {
+  function abrirModal(item = null) {
+    editando = item;
+    form.reset();
+    document.getElementById('tituloModalReceita').textContent = item ? 'Editar Receita Médica' : 'Registrar Receita Médica';
+    document.getElementById('btnSalvarReceita').textContent = item ? 'Salvar Alterações' : 'Salvar Receita';
+    // O paciente de uma receita já registrada não pode ser trocado.
+    selectCliente.disabled = !!item;
+    if (item) {
+      selectCliente.value = String(item.cliente_id);
+      document.getElementById('rec_medico').value = item.medico_prescritor || '';
+      document.getElementById('rec_medicamentos').value = item.medicamentos || '';
+      document.getElementById('rec_data').value = item.data_venda || '';
+    }
+    modal.classList.add('active');
+  }
+  const fecharModal = () => modal.classList.remove('active');
+
+  document.getElementById('btnAbrirModalReceita').onclick = () => abrirModal();
+  document.getElementById('btnFecharModalReceita').onclick = fecharModal;
+  document.getElementById('btnCancelarReceita').onclick = fecharModal;
+
+  const porId = id => receitas.find(r => String(r.id) === String(id));
+  ligarAcoes(container, {
+    editar: id => abrirModal(porId(id)),
+    excluir: id => confirmarEExcluir({
+      mensagem: `Excluir a receita de ${porId(id)?.cliente_nome || 'este paciente'} (${porId(id)?.medico_prescritor || ''})? Esta ação não pode ser desfeita.`,
+      excluir: () => api.excluirReceita(id),
+      aoConcluir: () => renderReceitas(container),
+    }),
+  });
+
+  form.onsubmit = async (e) => {
     e.preventDefault();
-    const clienteId = parseInt(document.getElementById('rec_cliente_id').value, 10);
-    const clienteSelecionado = clientes.find(c => c.id === clienteId);
-
     const payload = {
-      cliente_id: clienteId,
-      cliente_nome: clienteSelecionado ? clienteSelecionado.nome : null,
       medico_prescritor: document.getElementById('rec_medico').value.trim(),
       medicamentos: document.getElementById('rec_medicamentos').value.trim(),
       data_venda: document.getElementById('rec_data').value,
     };
+    if (!editando) {
+      const clienteId = parseInt(selectCliente.value, 10);
+      const clienteSelecionado = clientes.find(c => c.id === clienteId);
+      payload.cliente_id = clienteId;
+      payload.cliente_nome = clienteSelecionado ? clienteSelecionado.nome : null;
+    }
 
     try {
-      await api.cadastrarReceita(payload);
-      modal.classList.remove('active');
+      if (editando) await api.atualizarReceita(editando.id, payload);
+      else await api.cadastrarReceita(payload);
+      fecharModal();
       await renderReceitas(container);
     } catch (err) {
       alert('Erro ao salvar: ' + err.message);

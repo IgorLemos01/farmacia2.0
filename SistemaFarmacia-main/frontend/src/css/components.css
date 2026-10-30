@@ -368,3 +368,50 @@
   background: var(--color-primary-light);
   color: var(--color-primary-dark);
 }
+
+/* --- Ações de linha (editar / excluir) --- */
+.row-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-icon {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  color: var(--text-body);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.btn-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.btn-icon:hover {
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  border-color: var(--border-hover);
+}
+
+.btn-icon-danger:hover {
+  background: var(--badge-danger-bg);
+  color: var(--badge-danger-text);
+  border-color: #f8b4b4;
+}
+
+/* Tabela com muitas colunas (Clientes): menos espaço lateral para caber sem rolagem */
+.table-compact th,
+.table-compact td {
+  padding-left: 12px;
+  padding-right: 12px;
+}

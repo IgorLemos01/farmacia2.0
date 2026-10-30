@@ -4,7 +4,7 @@
 
 import { api } from '../api.js';
 import { state } from '../state.js';
-import { escapeHtml as esc } from '../utils.js';
+import { escapeHtml as esc, filtrarPorPeriodo, hojeISO } from '../utils.js';
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -33,23 +33,22 @@ function formatDateTimeBR() {
   return `${hora} &nbsp;|&nbsp; ${data}.`;
 }
 
-// Últimos 7 dias para receita
-function getLast7Days() {
+// 7 dias terminando em `fim` (AAAA-MM-DD; padrão: hoje), no fuso local
+function getLast7Days(fim) {
+  const base = fim ? new Date(fim + 'T00:00:00') : new Date();
   const days = [];
   for (let i = 6; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
+    const d = new Date(base.getFullYear(), base.getMonth(), base.getDate() - i);
     days.push({
       label: `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
-      iso: d.toISOString().split('T')[0],
+      iso: hojeISO(d),
     });
   }
   return days;
 }
 
-function calcReceita7Dias(manipulacoes, exames, dataInicio) {
-  const dias = getLast7Days();
-  return dias.map(({ label, iso }) => {
+function calcReceita7Dias(manipulacoes, exames, fim) {
+  return getLast7Days(fim).map(({ label, iso }) => {
     const total = [
       ...manipulacoes.filter(m => m.data === iso),
       ...exames.filter(e => e.data === iso),
@@ -60,34 +59,43 @@ function calcReceita7Dias(manipulacoes, exames, dataInicio) {
 
 export async function renderDashboard(container, searchTerm, filtros = {}) {
   // Monta referência de data atual para filtros
-  const hoje = new Date().toISOString().split('T')[0];
-  const de = filtros.de || '';
-  const ate = filtros.ate || '';
+  const hoje = hojeISO();
+  let de = filtros.de || '';
+  let ate = filtros.ate || '';
+  if (de && ate && de > ate) [de, ate] = [ate, de]; // datas digitadas ao contrário
+  const filtrando = !!(de || ate);
 
   // Carrega os dados
-  const [clientes, manipulacoes, exames, receitas] = await Promise.all([
+  const [clientes, todasManipulacoes, todosExames, todasReceitas] = await Promise.all([
     api.listarClientes(),
     api.listarManipulacoes(),
     api.listarExames(),
     api.listarReceitas(),
   ]);
 
+  // O período vale para os serviços (manipulações, exames e receitas) e para a receita.
+  // "Atendimentos hoje" e o total de clientes cadastrados não dependem do período.
+  const manipulacoes = filtrarPorPeriodo(todasManipulacoes, 'data', de, ate);
+  const exames = filtrarPorPeriodo(todosExames, 'data', de, ate);
+  const receitas = filtrarPorPeriodo(todasReceitas, 'data_venda', de, ate);
+
   // --- Métricas ---
   const atendimentosHoje = [
-    ...manipulacoes.filter(m => m.data === hoje),
-    ...exames.filter(e => e.data === hoje),
-    ...receitas.filter(r => r.data_venda === hoje),
+    ...todasManipulacoes.filter(m => m.data === hoje),
+    ...todosExames.filter(e => e.data === hoje),
+    ...todasReceitas.filter(r => r.data_venda === hoje),
   ].length;
 
   const receitaTotal = [...manipulacoes, ...exames].reduce(
     (acc, item) => acc + Number(item.valor || 0), 0
   );
-  const receitaHoje = [...manipulacoes, ...exames]
-    .filter(item => (item.data || item.data_venda) === hoje)
+  const receitaHoje = [...todasManipulacoes, ...todosExames]
+    .filter(item => item.data === hoje)
     .reduce((acc, item) => acc + Number(item.valor || 0), 0);
 
   // Receita 7 dias
-  const receita7Dias = calcReceita7Dias(manipulacoes, exames);
+  // (a janela termina em "Até" quando há filtro; os valores usam todos os registros)
+  const receita7Dias = calcReceita7Dias(todasManipulacoes, todosExames, ate);
   const maxReceita = Math.max(...receita7Dias.map(d => d.total), 1);
 
   // Últimos Serviços (últimos 8 registros unificados)
@@ -154,6 +162,11 @@ export async function renderDashboard(container, searchTerm, filtros = {}) {
             Limpar
           </button>
         </div>
+        ${filtrando
+          ? `<span style="font-size: 0.8rem; color: var(--color-primary-dark); font-weight: 600;">
+               Exibindo ${de ? `de ${formatDateBR(de)} ` : ''}${ate ? `até ${formatDateBR(ate)}` : ''}
+             </span>`
+          : ''}
       </div>
     </div>
 
@@ -195,7 +208,7 @@ export async function renderDashboard(container, searchTerm, filtros = {}) {
           </div>
           <span style="font-size: 2rem; font-weight: 800; color: var(--text-title); line-height: 1;">${manipulacoes.length}</span>
         </div>
-        <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500;">Manipulações total</span>
+        <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500;">${filtrando ? 'Manipulações no período' : 'Manipulações total'}</span>
       </div>
 
       <!-- Exames -->
@@ -206,7 +219,7 @@ export async function renderDashboard(container, searchTerm, filtros = {}) {
           </div>
           <span style="font-size: 2rem; font-weight: 800; color: var(--text-title); line-height: 1;">${exames.length}</span>
         </div>
-        <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500;">Exames total</span>
+        <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500;">${filtrando ? 'Exames no período' : 'Exames total'}</span>
       </div>
 
       <!-- Receita Total -->
@@ -217,7 +230,7 @@ export async function renderDashboard(container, searchTerm, filtros = {}) {
           </div>
           <span style="font-size: 1.35rem; font-weight: 800; color: var(--text-title); line-height: 1; white-space: nowrap;">${formatCurrency(receitaTotal)}</span>
         </div>
-        <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500;">Receita total</span>
+        <span style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500;">${filtrando ? 'Receita no período' : 'Receita total'}</span>
         <span style="font-size: 0.72rem; color: #059669; font-weight: 600;">+${formatCurrency(receitaHoje)} hoje</span>
       </div>
 
@@ -240,7 +253,7 @@ export async function renderDashboard(container, searchTerm, filtros = {}) {
       <div class="card" style="padding: 0; overflow: hidden;">
         <div style="padding: 18px 22px 14px; border-bottom: 1px solid var(--border-light);">
           <div style="font-size: 1rem; font-weight: 700; color: var(--text-title);">Últimos Serviços</div>
-          <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 1px;">Registros mais recentes</div>
+          <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 1px;">${filtrando ? 'Registros do período' : 'Registros mais recentes'}</div>
         </div>
 
         <div style="padding: 14px 0;">
@@ -280,7 +293,7 @@ export async function renderDashboard(container, searchTerm, filtros = {}) {
         <!-- RECEITA 7 DIAS -->
         <div class="card" style="padding: 0; overflow: hidden;">
           <div style="padding: 18px 22px 14px; border-bottom: 1px solid var(--border-light);">
-            <div style="font-size: 1rem; font-weight: 700; color: var(--text-title);">Receita (7 dias)</div>
+            <div style="font-size: 1rem; font-weight: 700; color: var(--text-title);">Receita (7 dias${ate ? ` até ${formatDateBR(ate)}` : ''})</div>
           </div>
           <div style="padding: 6px 0;">
             ${receita7Dias.map(({ label, total }) => {

@@ -3,7 +3,7 @@
 // ============================================================
 
 import { api } from '../api.js';
-import { escapeHtml as esc } from '../utils.js';
+import { botoesAcoes, confirmarEExcluir, escapeHtml as esc, hojeISO, ligarAcoes } from '../utils.js';
 
 export async function renderManipulacoes(container) {
   const [manipulacoes, clientes] = await Promise.all([
@@ -34,12 +34,13 @@ export async function renderManipulacoes(container) {
               <th>Prazo Entrega</th>
               <th>Valor & Pagamento</th>
               <th>Observações</th>
+              <th style="text-align: right;">Ações</th>
             </tr>
           </thead>
           <tbody>
             ${
               manipulacoes.length === 0
-                ? `<tr><td colspan="6" style="text-align: center; padding: 40px; color: var(--text-muted);">Nenhuma fórmula cadastrada.</td></tr>`
+                ? `<tr><td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">Nenhuma fórmula cadastrada.</td></tr>`
                 : manipulacoes.map(m => `
                     <tr>
                       <td>
@@ -59,6 +60,7 @@ export async function renderManipulacoes(container) {
                       <td style="font-size: 0.78rem; color: var(--text-muted); max-width: 180px;">
                         ${esc(m.observacoes || '-')}
                       </td>
+                      <td style="text-align: right;"><div class="row-actions">${botoesAcoes(m.id)}</div></td>
                     </tr>
                   `).join('')
             }
@@ -71,7 +73,7 @@ export async function renderManipulacoes(container) {
     <div class="modal-overlay" id="modalNovaManip">
       <div class="modal-card">
         <div class="modal-header">
-          <h3 class="modal-title">Novo Pedido de Manipulação</h3>
+          <h3 class="modal-title" id="tituloModalManip">Novo Pedido de Manipulação</h3>
           <button class="modal-close" id="btnFecharModalManip">&times;</button>
         </div>
         <form id="formNovaManip">
@@ -91,7 +93,7 @@ export async function renderManipulacoes(container) {
 
             <div class="form-group">
               <label class="form-label">Data do Pedido</label>
-              <input type="date" class="form-input" id="manip_data" value="${new Date().toISOString().split('T')[0]}"/>
+              <input type="date" class="form-input" id="manip_data" value="${hojeISO()}"/>
             </div>
 
             <div class="form-group">
@@ -123,7 +125,7 @@ export async function renderManipulacoes(container) {
 
           <div style="display: flex; justify-content: flex-end; gap: 12px;">
             <button type="button" class="btn btn-secondary" id="btnCancelarManip">Cancelar</button>
-            <button type="submit" class="btn btn-primary">Registrar Manipulação</button>
+            <button type="submit" class="btn btn-primary" id="btnSalvarManip">Registrar Manipulação</button>
           </div>
         </form>
       </div>
@@ -131,18 +133,47 @@ export async function renderManipulacoes(container) {
   `;
 
   const modal = document.getElementById('modalNovaManip');
-  document.getElementById('btnAbrirModalManip').onclick = () => modal.classList.add('active');
-  document.getElementById('btnFecharModalManip').onclick = () => modal.classList.remove('active');
-  document.getElementById('btnCancelarManip').onclick = () => modal.classList.remove('active');
+  const form = document.getElementById('formNovaManip');
+  const selectCliente = document.getElementById('manip_cliente_id');
+  let editando = null;
 
-  document.getElementById('formNovaManip').onsubmit = async (e) => {
+  function abrirModal(item = null) {
+    editando = item;
+    form.reset();
+    document.getElementById('tituloModalManip').textContent = item ? 'Editar Pedido de Manipulação' : 'Novo Pedido de Manipulação';
+    document.getElementById('btnSalvarManip').textContent = item ? 'Salvar Alterações' : 'Registrar Manipulação';
+    // O paciente de um pedido já registrado não pode ser trocado.
+    selectCliente.disabled = !!item;
+    if (item) {
+      selectCliente.value = String(item.cliente_id);
+      document.getElementById('manip_formula').value = item.formula || '';
+      document.getElementById('manip_data').value = item.data || '';
+      document.getElementById('manip_prazo').value = item.prazo_entrega || '';
+      document.getElementById('manip_valor').value = item.valor ?? '';
+      document.getElementById('manip_pagamento').value = item.forma_pagamento || 'PIX';
+      document.getElementById('manip_obs').value = item.observacoes || '';
+    }
+    modal.classList.add('active');
+  }
+  const fecharModal = () => modal.classList.remove('active');
+
+  document.getElementById('btnAbrirModalManip').onclick = () => abrirModal();
+  document.getElementById('btnFecharModalManip').onclick = fecharModal;
+  document.getElementById('btnCancelarManip').onclick = fecharModal;
+
+  const porId = id => manipulacoes.find(m => String(m.id) === String(id));
+  ligarAcoes(container, {
+    editar: id => abrirModal(porId(id)),
+    excluir: id => confirmarEExcluir({
+      mensagem: `Excluir o pedido de manipulação de ${porId(id)?.cliente_nome || 'este cliente'}? Esta ação não pode ser desfeita.`,
+      excluir: () => api.excluirManipulacao(id),
+      aoConcluir: () => renderManipulacoes(container),
+    }),
+  });
+
+  form.onsubmit = async (e) => {
     e.preventDefault();
-    const clienteId = parseInt(document.getElementById('manip_cliente_id').value, 10);
-    const clienteSelecionado = clientes.find(c => c.id === clienteId);
-
     const payload = {
-      cliente_id: clienteId,
-      cliente_nome: clienteSelecionado ? clienteSelecionado.nome : null,
       formula: document.getElementById('manip_formula').value.trim(),
       data: document.getElementById('manip_data').value,
       prazo_entrega: document.getElementById('manip_prazo').value || null,
@@ -150,10 +181,17 @@ export async function renderManipulacoes(container) {
       forma_pagamento: document.getElementById('manip_pagamento').value,
       observacoes: document.getElementById('manip_obs').value.trim() || null,
     };
+    if (!editando) {
+      const clienteId = parseInt(selectCliente.value, 10);
+      const clienteSelecionado = clientes.find(c => c.id === clienteId);
+      payload.cliente_id = clienteId;
+      payload.cliente_nome = clienteSelecionado ? clienteSelecionado.nome : null;
+    }
 
     try {
-      await api.cadastrarManipulacao(payload);
-      modal.classList.remove('active');
+      if (editando) await api.atualizarManipulacao(editando.id, payload);
+      else await api.cadastrarManipulacao(payload);
+      fecharModal();
       await renderManipulacoes(container);
     } catch (err) {
       alert('Erro ao salvar: ' + err.message);

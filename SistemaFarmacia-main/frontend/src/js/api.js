@@ -9,7 +9,6 @@
 const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 
 export const MODO_DEMO = !API_BASE_URL;
-export const API_DOCS_URL = API_BASE_URL ? `${API_BASE_URL}/docs` : 'http://localhost:5000/api/docs';
 
 export class ApiError extends Error {
   constructor(message, status) {
@@ -197,6 +196,24 @@ const MOCK_DATA = {
       criado_em: '2026-10-23T08:20:00',
     },
   ],
+  usuarios: [
+    {
+      id: 1,
+      nome: 'Administrador Demonstração',
+      email: 'admin@demo.com',
+      perfil: 'admin',
+      ativo: true,
+      criado_em: '2026-10-01T09:00:00',
+    },
+    {
+      id: 2,
+      nome: 'Atendente Demonstração',
+      email: 'atendente@demo.com',
+      perfil: 'atendente',
+      ativo: true,
+      criado_em: '2026-10-05T14:30:00',
+    },
+  ],
 };
 
 const demo = {
@@ -219,6 +236,20 @@ const demo = {
     demo.gravar(chave, lista);
     return novo;
   },
+  atualizar(chave, id, dados) {
+    const lista = demo.ler(chave);
+    const i = lista.findIndex(item => String(item.id) === String(id));
+    if (i < 0) throw new ApiError('Registro não encontrado.', 404);
+    lista[i] = { ...lista[i], ...dados, id: lista[i].id };
+    demo.gravar(chave, lista);
+    return lista[i];
+  },
+  remover(chave, id) {
+    const lista = demo.ler(chave);
+    const restante = lista.filter(item => String(item.id) !== String(id));
+    if (restante.length === lista.length) throw new ApiError('Registro não encontrado.', 404);
+    demo.gravar(chave, restante);
+  },
 };
 
 // Remove dados antigos gravados por versões anteriores (sem prefixo "demo").
@@ -227,6 +258,23 @@ const demo = {
 });
 
 const comBusca = termo => (termo ? `?q=${encodeURIComponent(termo)}` : '');
+const segmento = id => encodeURIComponent(id);
+
+// PUT/DELETE genéricos. `resposta` é a chave com o registro no JSON devolvido pela API.
+async function atualizarRegistro(rota, chave, resposta, id, dados) {
+  if (!MODO_DEMO) return (await request(`/${rota}/${segmento(id)}`, { method: 'PUT', body: dados }))[resposta];
+  return demo.atualizar(chave, id, dados);
+}
+
+async function excluirRegistro(rota, chave, id) {
+  if (!MODO_DEMO) {
+    await request(`/${rota}/${segmento(id)}`, { method: 'DELETE' });
+    return;
+  }
+  demo.remover(chave, id);
+}
+
+const DEMO_HISTORICO = ['manipulacoes', 'exames', 'receitas'];
 
 export const api = {
   // --- Autenticação ---
@@ -307,5 +355,65 @@ export const api = {
   async cadastrarReceita(dados) {
     if (!MODO_DEMO) return (await request('/receitas', { method: 'POST', body: dados })).receita;
     return demo.inserir('receitas', dados);
+  },
+
+  // --- Editar e excluir ---
+  async atualizarCliente(id, dados) {
+    if (MODO_DEMO) {
+      if (dados.cpf && demo.ler('clientes').some(c => c.cpf === dados.cpf && String(c.id) !== String(id))) {
+        throw new ApiError(`O CPF ${dados.cpf} já pertence a outro cliente.`, 400);
+      }
+      const atualizado = demo.atualizar('clientes', id, dados);
+      // Nos dados fictícios o nome do cliente é copiado em cada registro: mantém em sincronia.
+      DEMO_HISTORICO.forEach(chave => {
+        demo.gravar(chave, demo.ler(chave).map(r =>
+          String(r.cliente_id) === String(id) ? { ...r, cliente_nome: atualizado.nome } : r));
+      });
+      return atualizado;
+    }
+    return atualizarRegistro('clientes', 'clientes', 'cliente', id, dados);
+  },
+
+  async excluirCliente(id) {
+    if (MODO_DEMO && DEMO_HISTORICO.some(chave => demo.ler(chave).some(r => String(r.cliente_id) === String(id)))) {
+      throw new ApiError('Não é possível excluir este cliente pois existem manipulações, exames ou receitas vinculados.', 400);
+    }
+    return excluirRegistro('clientes', 'clientes', id);
+  },
+
+  atualizarManipulacao: (id, dados) => atualizarRegistro('manipulacoes', 'manipulacoes', 'manipulacao', id, dados),
+  excluirManipulacao: id => excluirRegistro('manipulacoes', 'manipulacoes', id),
+
+  atualizarExame: (id, dados) => atualizarRegistro('exames', 'exames', 'exame', id, dados),
+  excluirExame: id => excluirRegistro('exames', 'exames', id),
+
+  atualizarReceita: (id, dados) => atualizarRegistro('receitas', 'receitas', 'receita', id, dados),
+  excluirReceita: id => excluirRegistro('receitas', 'receitas', id),
+
+  // --- Usuários (administrador) ---
+  async listarUsuarios() {
+    if (!MODO_DEMO) return (await request('/usuarios')).itens || [];
+    return demo.ler('usuarios');
+  },
+
+  async cadastrarUsuario({ nome, email, senha, perfil }) {
+    if (!MODO_DEMO) {
+      return (await request('/auth/cadastro', { method: 'POST', body: { nome, email, senha, perfil } })).usuario;
+    }
+    if ((nome || '').trim().length < 3) throw new ApiError('Nome deve ter pelo menos 3 caracteres.', 400);
+    if ((senha || '').length < 6) throw new ApiError('Senha deve ter pelo menos 6 caracteres.', 400);
+    if (demo.ler('usuarios').some(u => u.email === email.trim().toLowerCase())) {
+      throw new ApiError('E-mail já cadastrado.', 409);
+    }
+    // No modo demonstração a senha não é guardada: não existe login.
+    return demo.inserir('usuarios', { nome: nome.trim(), email: email.trim().toLowerCase(), perfil, ativo: true });
+  },
+
+  async atualizarUsuario(id, dados) {
+    if (!MODO_DEMO) return atualizarRegistro('usuarios', 'usuarios', 'usuario', id, dados);
+    if ('nome' in dados && (dados.nome || '').trim().length < 3) throw new ApiError('Nome deve ter pelo menos 3 caracteres.', 400);
+    if (dados.senha && dados.senha.length < 6) throw new ApiError('Senha deve ter pelo menos 6 caracteres.', 400);
+    const { senha: _senha, ...resto } = dados;
+    return demo.atualizar('usuarios', id, resto);
   },
 };

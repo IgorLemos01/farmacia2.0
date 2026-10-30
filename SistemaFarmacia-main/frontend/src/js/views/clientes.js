@@ -3,7 +3,7 @@
 // ============================================================
 
 import { api } from '../api.js';
-import { escapeHtml as esc } from '../utils.js';
+import { botoesAcoes, confirmarEExcluir, escapeHtml as esc, ligarAcoes } from '../utils.js';
 
 export async function renderClientes(container, searchTerm = '') {
   const clientes = await api.listarClientes(searchTerm);
@@ -24,7 +24,7 @@ export async function renderClientes(container, searchTerm = '') {
       </div>
 
       <div class="table-responsive">
-        <table class="table-modern">
+        <table class="table-modern table-compact">
           <thead>
             <tr>
               <th>Paciente</th>
@@ -70,9 +70,12 @@ export async function renderClientes(container, searchTerm = '') {
                         }
                       </td>
                       <td style="text-align: right;">
-                        <button class="btn btn-secondary btn-sm" onclick="window.abrirDossie(${Number(c.id)})" style="border-radius: var(--radius-pill); font-weight: 600;">
-                          Dossiê 360° →
-                        </button>
+                        <div class="row-actions">
+                          <button class="btn btn-secondary btn-sm" onclick="window.abrirDossie(${Number(c.id)})" style="border-radius: var(--radius-pill); font-weight: 600; white-space: nowrap;">
+                            Dossiê 360°
+                          </button>
+                          ${botoesAcoes(c.id)}
+                        </div>
                       </td>
                     </tr>
                   `).join('')
@@ -86,7 +89,7 @@ export async function renderClientes(container, searchTerm = '') {
     <div class="modal-overlay" id="modalNovoCliente">
       <div class="modal-card">
         <div class="modal-header">
-          <h3 class="modal-title">Novo Cliente</h3>
+          <h3 class="modal-title" id="tituloModalCliente">Novo Cliente</h3>
           <button class="modal-close" id="btnFecharModalCliente">&times;</button>
         </div>
         <form id="formNovoCliente">
@@ -148,7 +151,7 @@ export async function renderClientes(container, searchTerm = '') {
 
           <div style="display: flex; justify-content: flex-end; gap: 12px;">
             <button type="button" class="btn btn-secondary" id="btnCancelarCliente">Cancelar</button>
-            <button type="submit" class="btn btn-primary">Salvar Cadastro</button>
+            <button type="submit" class="btn btn-primary" id="btnSalvarCliente">Salvar Cadastro</button>
           </div>
         </form>
       </div>
@@ -162,14 +165,48 @@ export async function renderClientes(container, searchTerm = '') {
     </div>
   `;
 
-  // Handlers do Modal
+  // Modal de cadastro / edição
   const modal = document.getElementById('modalNovoCliente');
-  document.getElementById('btnAbrirModalCliente').onclick = () => modal.classList.add('active');
-  document.getElementById('btnFecharModalCliente').onclick = () => modal.classList.remove('active');
-  document.getElementById('btnCancelarCliente').onclick = () => modal.classList.remove('active');
+  const form = document.getElementById('formNovoCliente');
+  let editando = null;
+
+  function abrirModal(cliente = null) {
+    editando = cliente;
+    form.reset();
+    document.getElementById('tituloModalCliente').textContent = cliente ? 'Editar Cliente' : 'Novo Cliente';
+    document.getElementById('btnSalvarCliente').textContent = cliente ? 'Salvar Alterações' : 'Salvar Cadastro';
+    if (cliente) {
+      document.getElementById('cli_nome').value = cliente.nome || '';
+      document.getElementById('cli_cpf').value = cliente.cpf || '';
+      document.getElementById('cli_rg').value = cliente.rg || '';
+      document.getElementById('cli_nasc').value = cliente.data_nascimento || '';
+      document.getElementById('cli_sexo').value = cliente.sexo || 'M';
+      document.getElementById('cli_tel').value = cliente.telefone || '';
+      document.getElementById('cli_email').value = cliente.email || '';
+      document.getElementById('cli_end').value = cliente.endereco || '';
+      document.getElementById('cli_alergia').value = cliente.alergia || '';
+      document.getElementById('cli_obs').value = cliente.observacoes || '';
+    }
+    modal.classList.add('active');
+  }
+  const fecharModal = () => modal.classList.remove('active');
+
+  document.getElementById('btnAbrirModalCliente').onclick = () => abrirModal();
+  document.getElementById('btnFecharModalCliente').onclick = fecharModal;
+  document.getElementById('btnCancelarCliente').onclick = fecharModal;
+
+  const porId = id => clientes.find(c => String(c.id) === String(id));
+  ligarAcoes(container, {
+    editar: id => abrirModal(porId(id)),
+    excluir: id => confirmarEExcluir({
+      mensagem: `Excluir o cadastro de ${porId(id)?.nome || 'este cliente'}? Esta ação não pode ser desfeita.`,
+      excluir: () => api.excluirCliente(id),
+      aoConcluir: () => renderClientes(container, searchTerm),
+    }),
+  });
 
   // Submit do formulário de cliente
-  document.getElementById('formNovoCliente').onsubmit = async (e) => {
+  form.onsubmit = async (e) => {
     e.preventDefault();
     const payload = {
       nome: document.getElementById('cli_nome').value.trim(),
@@ -185,11 +222,12 @@ export async function renderClientes(container, searchTerm = '') {
     };
 
     try {
-      await api.cadastrarCliente(payload);
-      modal.classList.remove('active');
-      await renderClientes(container);
+      if (editando) await api.atualizarCliente(editando.id, payload);
+      else await api.cadastrarCliente(payload);
+      fecharModal();
+      await renderClientes(container, searchTerm);
     } catch (err) {
-      alert('Erro ao cadastrar cliente: ' + err.message);
+      alert('Erro ao salvar cliente: ' + err.message);
     }
   };
 

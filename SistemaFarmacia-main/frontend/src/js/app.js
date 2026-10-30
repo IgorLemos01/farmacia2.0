@@ -3,13 +3,14 @@
 // ============================================================
 
 import { state } from './state.js';
-import { api, sessao, MODO_DEMO, API_DOCS_URL } from './api.js';
+import { api, sessao, MODO_DEMO } from './api.js';
 import { escapeHtml } from './utils.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderClientes } from './views/clientes.js';
 import { renderManipulacoes } from './views/manipulacoes.js';
 import { renderExames } from './views/exames.js';
 import { renderReceitas } from './views/receitas.js';
+import { renderConfiguracoes } from './views/configuracoes.js';
 
 const ROUTE_CONFIG = {
   dashboard: {
@@ -36,6 +37,11 @@ const ROUTE_CONFIG = {
     title: 'Receituário Médico',
     subtitle: 'Registro de medicamentos prescritos e médicos responsáveis.',
     render: renderReceitas,
+  },
+  configuracoes: {
+    title: 'Configurações',
+    subtitle: 'Gestão de usuários e acessos ao sistema.',
+    render: renderConfiguracoes,
   },
 };
 
@@ -141,9 +147,8 @@ function abrirLogin() {
 }
 
 function initSessao(router) {
-  document.getElementById('linkAjudaApi').addEventListener('click', () => {
-    window.open(API_DOCS_URL, '_blank', 'noopener');
-  });
+  // O nome mostrado no topo acompanha edições do próprio perfil
+  window.addEventListener('fc:usuario-atualizado', () => exibirUsuario(sessao.usuario()));
 
   if (MODO_DEMO) {
     document.getElementById('badgeModoDemo').style.display = '';
