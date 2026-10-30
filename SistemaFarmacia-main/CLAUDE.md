@@ -10,6 +10,14 @@ SistemaFarmacia/
 
 ---
 
+## Fluxo de Git
+
+- **Envie as alterações direto para a branch `main`** (autorizado pelo dono do repositório).
+  Ao terminar uma mudança: verifique o build (`npm run build`), faça o commit e `git push origin HEAD:main`.
+- A `main` é publicada automaticamente na Vercel, então tudo que chega nela vai ao ar.
+
+---
+
 ## Frontend — Landing Page + Sistema
 
 **Tecnologia**: Vite + Vanilla JS (build multi-página)
