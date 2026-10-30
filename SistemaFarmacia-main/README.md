@@ -33,9 +33,10 @@ npm run dev:frontend
 ```
 Acesse em: `http://localhost:5173` (landing) e `http://localhost:5173/sistema.html` (sistema).
 
-### Catálogo de exames
-O nome e o valor dos exames ficam no banco e são mantidos pelo administrador em
-**Configurações → Catálogo de Exames** (com importação de CSV). Veja o `CLAUDE.md`.
+### Catálogos (exames e medicamentos)
+O nome e o valor dos exames, e o RMS/descrição/laboratório dos medicamentos, ficam no banco e são
+mantidos pelo administrador em **Configurações** (com importação de CSV). A receita escolhe os
+medicamentos do catálogo e gera o PDF da ficha. Veja o `CLAUDE.md`.
 
 ### 2. Testes
 ```bash

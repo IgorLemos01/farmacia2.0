@@ -83,3 +83,51 @@ describe('lerArquivoTexto', () => {
     expect(await lerArquivoTexto(arquivo(bytes))).toBe('Sumário');
   });
 });
+
+import { lerCsvMedicamentos } from '../src/js/csv.js';
+
+describe('lerCsvMedicamentos', () => {
+  it('lê o CSV gerado a partir da planilha de controlados', () => {
+    const { itens, erros } = lerCsvMedicamentos('RMS;Descrição;Laboratório\r\n1023506630034;ALPRAZOLAM 0,25 MG 30 CPRS;EMS INDUSTRIA FARMACEUTICA LTDA\r\n1677304970028;AMOX+CLAVULANATO 400MG/5 ML PÓ;LEGRAND PHARMA\r\n');
+    expect(erros).toEqual([]);
+    expect(itens).toEqual([
+      { linha: 2, rms: '1023506630034', descricao: 'ALPRAZOLAM 0,25 MG 30 CPRS', laboratorio: 'EMS INDUSTRIA FARMACEUTICA LTDA' },
+      { linha: 3, rms: '1677304970028', descricao: 'AMOX+CLAVULANATO 400MG/5 ML PÓ', laboratorio: 'LEGRAND PHARMA' },
+    ]);
+  });
+
+  it('importa direto a planilha de estoque, ignorando lote, validade e quantidade', () => {
+    const csv = 'RMS;Descrição;Lote;VALIDADE;Quantidade;Laboratório\n1023506630034;ALPRAZOLAM 0,25 MG   30 CPRS   ;4Q6312;19/02/2027;2;EMS LTDA   \n';
+    expect(lerCsvMedicamentos(csv).itens).toEqual([
+      { linha: 2, rms: '1023506630034', descricao: 'ALPRAZOLAM 0,25 MG 30 CPRS', laboratorio: 'EMS LTDA' },
+    ]);
+  });
+
+  it('sem título usa a ordem RMS, Descrição, Laboratório', () => {
+    expect(lerCsvMedicamentos('111;TESTE 10 MG;LAB X').itens).toEqual([
+      { linha: 1, rms: '111', descricao: 'TESTE 10 MG', laboratorio: 'LAB X' },
+    ]);
+  });
+
+  it('aceita medicamento sem RMS e sem laboratório', () => {
+    expect(lerCsvMedicamentos('RMS;Descrição;Laboratório\n;SEM TUDO;\n').itens).toEqual([
+      { linha: 2, rms: '', descricao: 'SEM TUDO', laboratorio: '' },
+    ]);
+  });
+
+  it('o RMS não vira número: zeros à esquerda e os 13 dígitos são preservados', () => {
+    expect(lerCsvMedicamentos('RMS;Descrição;Laboratório\n0023506630034;X;Y').itens[0].rms).toBe('0023506630034');
+  });
+
+  it('recusa RMS que o Excel transformou em notação científica e linhas sem descrição', () => {
+    const { itens, erros } = lerCsvMedicamentos('RMS;Descrição;Laboratório\n1,02351E+12;ESTRAGADO;LAB\n123;;LAB\n456;OK;LAB\n');
+    expect(itens).toEqual([{ linha: 4, rms: '456', descricao: 'OK', laboratorio: 'LAB' }]);
+    expect(erros.map(e => e.linha)).toEqual([2, 3]);
+    expect(erros[0].motivo).toContain('notação científica');
+    expect(erros[1].motivo).toBe('Sem descrição do medicamento.');
+  });
+
+  it('arquivo vazio não gera nada', () => {
+    expect(lerCsvMedicamentos('')).toEqual({ itens: [], erros: [] });
+  });
+});

@@ -484,3 +484,121 @@
   font-size: 0.8rem;
   color: var(--badge-danger-text);
 }
+
+/* --- Autocomplete (busca de paciente / medicamento) --- */
+.campo-autocomplete { position: relative; }
+
+.autocomplete-lista {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--bg-card);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-hover);
+}
+
+.autocomplete-lista[hidden] { display: none; }
+
+.autocomplete-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.autocomplete-item.ativo,
+.autocomplete-item:hover { background: var(--color-primary-light); }
+
+.autocomplete-principal { font-size: 0.86rem; font-weight: 600; color: var(--text-title); }
+.autocomplete-detalhe { font-size: 0.74rem; color: var(--text-muted); }
+.autocomplete-vazio { padding: 10px; font-size: 0.82rem; color: var(--text-muted); }
+
+/* --- Receita: formulário largo, cartão do paciente e blocos de medicamento --- */
+.modal-wide { max-width: 820px; }
+
+.form-input.selecionado {
+  background: var(--color-primary-light);
+  font-weight: 600;
+  color: var(--text-title);
+}
+
+.form-input[readonly] { background: #f1f4f8; color: var(--text-body); cursor: default; }
+
+.paciente-card {
+  margin-top: 10px;
+  padding: 14px 16px;
+  background: var(--color-primary-light);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+}
+
+.paciente-card[hidden] { display: none; }
+
+.paciente-card-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  color: var(--text-title);
+}
+
+.paciente-card-dados {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 20px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.paciente-card-dados b { color: var(--text-muted); font-weight: 700; }
+
+.btn-limpar {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  color: var(--text-body);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.btn-limpar:hover { background: var(--badge-danger-bg); color: var(--badge-danger-text); }
+
+.med-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: #f4f6f9;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+}
+
+.med-linha { display: grid; gap: 8px; align-items: center; }
+.med-linha-1 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1.4fr) 34px; }
+.med-linha-2 { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.8fr) minmax(0, 0.7fr); }
+
+.med-item .form-input { min-width: 0; padding-left: 12px; padding-right: 12px; font-size: 0.84rem; }
+.med-item .form-input.invalido { border-color: var(--badge-danger-text); }
+
+.med-resumo { display: block; font-size: 0.82rem; color: var(--text-body); line-height: 1.5; }
+.med-resumo small { color: var(--text-muted); }
+
+@media (max-width: 720px) {
+  .med-linha-1, .med-linha-2 { grid-template-columns: 1fr 1fr; }
+  .med-linha-1 .campo-autocomplete { grid-column: 1 / -1; }
+  .paciente-card-dados { grid-template-columns: 1fr; }
+}

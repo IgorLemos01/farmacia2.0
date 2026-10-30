@@ -5,6 +5,7 @@
 import { api, MODO_DEMO, sessao } from '../api.js';
 import { botoesAcoes, escapeHtml as esc, ligarAcoes } from '../utils.js';
 import { renderCatalogo } from './catalogo.js';
+import { renderCatalogoMedicamentos } from './catalogo_medicamentos.js';
 
 const NOME_PERFIL = { admin: 'Administrador', atendente: 'Atendente' };
 
@@ -13,6 +14,7 @@ const dataBR = iso => (iso ? String(iso).slice(0, 10).split('-').reverse().join(
 const ABAS = {
   usuarios: { titulo: 'Usuários', render: renderUsuarios },
   catalogo: { titulo: 'Catálogo de Exames', render: renderCatalogo },
+  medicamentos: { titulo: 'Catálogo de Medicamentos', render: renderCatalogoMedicamentos },
 };
 let abaAtual = 'usuarios';
 
@@ -24,7 +26,7 @@ export async function renderConfiguracoes(container) {
     container.innerHTML = `
       <div class="card" style="text-align: center; padding: 48px 24px;">
         <p style="font-size: 1.05rem; font-weight: 800; color: var(--text-title); margin-bottom: 6px;">Acesso restrito</p>
-        <p style="font-size: 0.88rem; color: var(--text-muted);">Somente administradores podem gerenciar usuários e o catálogo de exames.</p>
+        <p style="font-size: 0.88rem; color: var(--text-muted);">Somente administradores podem gerenciar usuários e os catálogos de exames e medicamentos.</p>
       </div>`;
     return;
   }

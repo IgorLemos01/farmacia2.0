@@ -183,7 +183,11 @@ const MOCK_DATA = {
       cliente_nome: 'Mariana Ribeiro Costa',
       data_venda: '2026-10-22',
       medico_prescritor: 'Dra. Juliana Prado (CRM-SE 4589)',
-      medicamentos: 'Loção Capilar Manipulada 60ml + Polivitamínico A-Z',
+      observacoes: null,
+      itens: [
+        { id: 101, medicamento: 'ALPRAZOLAM 0,25 MG 30 CPRS', rms: '9000000000011', laboratorio: 'LAB DEMONSTRAÇÃO A', dose: '0,25 mg', posologia: '1 comprimido à noite', lote: 'DEMO01', validade: '02/2028', quantidade: 1 },
+      ],
+      medicamentos: 'ALPRAZOLAM 0,25 MG 30 CPRS',
       criado_em: '2026-10-22T10:45:00',
     },
     {
@@ -191,11 +195,27 @@ const MOCK_DATA = {
       cliente_id: 2,
       cliente_nome: 'Carlos Eduardo Santos',
       data_venda: '2026-10-23',
-      medico_prescritor: 'Dr. Roberto Lemos (CRM-SE 3120)',
-      medicamentos: 'Melatonina Composta 60 caps',
+      medico_prescritor: null,
+      observacoes: 'Tomar com água.',
+      itens: [
+        { id: 102, medicamento: 'AMOXICILINA 500 MG CX 21 COMP.', rms: '9000000000028', laboratorio: 'LAB DEMONSTRAÇÃO B', dose: '500 mg', posologia: '1 comprimido de 8 em 8 horas', lote: 'DEMO02', validade: '05/2028', quantidade: 1 },
+        { id: 103, medicamento: 'CLONAZEPAM 2 MG 30 COMP', rms: '9000000000035', laboratorio: 'LAB DEMONSTRAÇÃO A', dose: null, posologia: null, lote: 'DEMO03', validade: '09/2027', quantidade: 2 },
+      ],
+      medicamentos: 'AMOXICILINA 500 MG CX 21 COMP.; CLONAZEPAM 2 MG 30 COMP',
       criado_em: '2026-10-23T08:20:00',
     },
   ],
+  // Amostra FICTÍCIA (RMS e laboratórios inventados): o site de demonstração é público.
+  catalogo_medicamentos: [
+    ['ALPRAZOLAM 0,25 MG 30 CPRS', '9000000000011', 'LAB DEMONSTRAÇÃO A'],
+    ['AMOXICILINA 500 MG CX 21 COMP.', '9000000000028', 'LAB DEMONSTRAÇÃO B'],
+    ['CLONAZEPAM 2 MG 30 COMP', '9000000000035', 'LAB DEMONSTRAÇÃO A'],
+    ['PREGABALINA 75 MG 30 CÁPS', '9000000000042', 'LAB DEMONSTRAÇÃO C'],
+    ['AMITRIPTILINA 25 MG 30 CPR', '9000000000059', 'LAB DEMONSTRAÇÃO B'],
+    ['RISPERIDONA 1 MG/ML SOLUÇÃO', '9000000000066', 'LAB DEMONSTRAÇÃO C'],
+  ].map(([descricao, rms, laboratorio], i) => ({
+    id: i + 1, rms, descricao, laboratorio, ativo: true, criado_em: '2026-10-01T09:00:00', atualizado_em: '2026-10-01T09:00:00',
+  })),
   catalogo_exames: [
     ['Glicemia em jejum', 10], ['Hemograma completo', 20], ['TSH', 25], ['Colesterol total e frações', 30],
     ['Triglicerídeos', 15], ['Ácido úrico', 12], ['Teste de gravidez', 18], ['Sumário de urina', 12],
@@ -304,6 +324,84 @@ function validarValorCatalogo(valor) {
 
 const mesmoNome = (a, b) => a.toLowerCase() === b.toLowerCase();
 
+// ── Catálogo de medicamentos e receitas (modo demonstração: mesmas regras do backend) ──
+const MAX_ITENS_RECEITA = 12;
+const NOTACAO_CIENTIFICA = /^\d+([.,]\d+)?e[+-]?\d+$/i;
+const resumoItens = itens => itens.map(i => i.medicamento).join('; ');
+const chaveMedicamento = (rms, descricao) => `${rms}|${descricao.toLowerCase()}`;
+
+function validarDescricaoMedicamento(valor) {
+  const texto = normalizarNome(valor);
+  if (!texto) throw new ApiError('A descrição do medicamento é obrigatória.', 400);
+  if (texto.length > 255) throw new ApiError('A descrição deve ter no máximo 255 caracteres.', 400);
+  return texto;
+}
+
+function validarRms(valor) {
+  const rms = String(valor ?? '').replace(/\s/g, '');
+  if (NOTACAO_CIENTIFICA.test(rms)) throw new ApiError('RMS em notação científica: o Excel estragou o número. Use o CSV original.', 400);
+  if (rms.length > 30) throw new ApiError('O RMS deve ter no máximo 30 caracteres.', 400);
+  return rms;
+}
+
+const validarLaboratorio = valor => {
+  const texto = normalizarNome(valor);
+  if (texto.length > 150) throw new ApiError('Laboratório deve ter no máximo 150 caracteres.', 400);
+  return texto || null;
+};
+
+function textoItem(valor, maximo, rotulo, posicao) {
+  if (valor === null || valor === undefined) return null;
+  const texto = String(valor).trim();
+  if (!texto) return null;
+  if (texto.length > maximo) throw new ApiError(`Medicamento ${posicao}: ${rotulo} deve ter no máximo ${maximo} caracteres.`, 400);
+  return texto;
+}
+
+function quantidadeItem(valor, posicao) {
+  if (valor === null || valor === undefined || valor === '') return null;
+  const numero = Number(valor);
+  if (typeof valor === 'boolean' || !Number.isInteger(numero) || numero < 1 || numero > 9999) {
+    throw new ApiError(`Medicamento ${posicao}: a quantidade deve ser um número inteiro maior que zero.`, 400);
+  }
+  return numero;
+}
+
+function montarItensReceita(itens, receitaAtual = null) {
+  if (!Array.isArray(itens) || !itens.length) throw new ApiError('Adicione pelo menos um medicamento à receita.', 400);
+  if (itens.length > MAX_ITENS_RECEITA) throw new ApiError(`Uma receita pode ter no máximo ${MAX_ITENS_RECEITA} medicamentos.`, 400);
+
+  const catalogo = demo.ler('catalogo_medicamentos');
+  const existentes = receitaAtual?.itens || [];
+
+  return itens.map((bruto, i) => {
+    const posicao = i + 1;
+    const naoEscolhido = () => new ApiError(`Medicamento ${posicao}: escolha um medicamento da lista do catálogo.`, 400);
+    let copia;
+    let id = Date.now() + i;
+
+    if (bruto?.catalogo_id !== null && bruto?.catalogo_id !== undefined) {
+      const med = catalogo.find(m => m.id === bruto.catalogo_id && m.ativo);
+      if (!med) throw naoEscolhido();
+      copia = { medicamento: med.descricao, rms: med.rms, laboratorio: med.laboratorio };
+    } else {
+      const antigo = existentes.find(x => x.id === bruto?.id);
+      if (!antigo) throw naoEscolhido();
+      copia = { medicamento: antigo.medicamento, rms: antigo.rms, laboratorio: antigo.laboratorio };
+      id = antigo.id;
+    }
+    return {
+      id,
+      ...copia,
+      dose: textoItem(bruto.dose, 60, 'Dose', posicao),
+      posologia: textoItem(bruto.posologia, 200, 'Posologia', posicao),
+      lote: textoItem(bruto.lote, 60, 'Lote', posicao),
+      validade: textoItem(bruto.validade, 20, 'Validade', posicao),
+      quantidade: quantidadeItem(bruto.quantidade, posicao),
+    };
+  });
+}
+
 export const api = {
   // --- Autenticação ---
   async login(email, senha) {
@@ -334,6 +432,13 @@ export const api = {
       throw new ApiError(`Já existe um cliente cadastrado com o CPF ${dados.cpf}.`, 400);
     }
     return demo.inserir('clientes', dados);
+  },
+
+  async obterCliente(id) {
+    if (!MODO_DEMO) return request(`/clientes/${segmento(id)}`);
+    const cliente = demo.ler('clientes').find(c => String(c.id) === String(id));
+    if (!cliente) throw new ApiError('Cliente não encontrado.', 404);
+    return cliente;
   },
 
   async obterDossieCliente(id) {
@@ -383,9 +488,16 @@ export const api = {
     return demo.ler('receitas');
   },
 
-  async cadastrarReceita(dados) {
-    if (!MODO_DEMO) return (await request('/receitas', { method: 'POST', body: dados })).receita;
-    return demo.inserir('receitas', dados);
+  async cadastrarReceita({ itens, ...dados }) {
+    if (!MODO_DEMO) return (await request('/receitas', { method: 'POST', body: { ...dados, itens } })).receita;
+    const lista = montarItensReceita(itens);
+    return demo.inserir('receitas', {
+      ...dados,
+      medico_prescritor: textoItem(dados.medico_prescritor, 200, 'Médico prescritor', 0) ?? null,
+      observacoes: textoItem(dados.observacoes, 2000, 'Observações', 0) ?? null,
+      itens: lista,
+      medicamentos: resumoItens(lista),
+    });
   },
 
   // --- Editar e excluir ---
@@ -421,7 +533,21 @@ export const api = {
   },
   excluirExame: id => excluirRegistro('exames', 'exames', id),
 
-  atualizarReceita: (id, dados) => atualizarRegistro('receitas', 'receitas', 'receita', id, dados),
+  async atualizarReceita(id, { itens, ...dados }) {
+    if (!MODO_DEMO) return atualizarRegistro('receitas', 'receitas', 'receita', id, itens === undefined ? dados : { ...dados, itens });
+    const atual = demo.ler('receitas').find(r => String(r.id) === String(id));
+    if (!atual) throw new ApiError('Receita não encontrada.', 404);
+
+    const mudancas = {};
+    if ('medico_prescritor' in dados) mudancas.medico_prescritor = textoItem(dados.medico_prescritor, 200, 'Médico prescritor', 0);
+    if ('observacoes' in dados) mudancas.observacoes = textoItem(dados.observacoes, 2000, 'Observações', 0);
+    if (dados.data_venda) mudancas.data_venda = dados.data_venda;
+    if (itens !== undefined) {
+      mudancas.itens = montarItensReceita(itens, atual);
+      mudancas.medicamentos = resumoItens(mudancas.itens);
+    }
+    return demo.atualizar('receitas', id, mudancas);
+  },
   excluirReceita: id => excluirRegistro('receitas', 'receitas', id),
 
   // --- Usuários (administrador) ---
@@ -523,6 +649,84 @@ export const api = {
     });
 
     demo.gravar('catalogo_exames', lista);
+    return { criados, atualizados, iguais, erros };
+  },
+
+  // --- Catálogo de medicamentos ---
+  // Todos podem consultar; criar, editar, desativar e importar é só do administrador (a API confere).
+  async listarCatalogoMedicamentos({ apenasAtivos = false } = {}) {
+    if (!MODO_DEMO) return (await request(`/catalogo-medicamentos${apenasAtivos ? '?ativos=true' : ''}`)).itens || [];
+    return demo.ler('catalogo_medicamentos')
+      .filter(m => !apenasAtivos || m.ativo)
+      .sort((a, b) => a.descricao.localeCompare(b.descricao, 'pt-BR'));
+  },
+
+  async cadastrarCatalogoMedicamento({ descricao, rms, laboratorio }) {
+    if (!MODO_DEMO) {
+      return (await request('/catalogo-medicamentos', { method: 'POST', body: { descricao, rms, laboratorio } })).medicamento;
+    }
+    const dados = { descricao: validarDescricaoMedicamento(descricao), rms: validarRms(rms), laboratorio: validarLaboratorio(laboratorio) };
+    const existente = demo.ler('catalogo_medicamentos').find(m => chaveMedicamento(m.rms, m.descricao) === chaveMedicamento(dados.rms, dados.descricao));
+    if (existente) throw new ApiError(`Já existe '${existente.descricao}' com esse RMS${existente.ativo ? '.' : ' (desativado). Reative-o na lista.'}`, 400);
+    return demo.inserir('catalogo_medicamentos', { ...dados, ativo: true, atualizado_em: new Date().toISOString() });
+  },
+
+  async atualizarCatalogoMedicamento(id, dados) {
+    if (!MODO_DEMO) return atualizarRegistro('catalogo-medicamentos', 'catalogo_medicamentos', 'medicamento', id, dados);
+    const atual = demo.ler('catalogo_medicamentos').find(m => String(m.id) === String(id));
+    if (!atual) throw new ApiError('Medicamento não encontrado no catálogo.', 404);
+
+    const mudancas = {};
+    if ('descricao' in dados) mudancas.descricao = validarDescricaoMedicamento(dados.descricao);
+    if ('rms' in dados) mudancas.rms = validarRms(dados.rms);
+    if ('laboratorio' in dados) mudancas.laboratorio = validarLaboratorio(dados.laboratorio);
+    if ('ativo' in dados) {
+      if (typeof dados.ativo !== 'boolean') throw new ApiError("O campo 'ativo' deve ser verdadeiro ou falso.", 400);
+      mudancas.ativo = dados.ativo;
+    }
+    const chave = chaveMedicamento(mudancas.rms ?? atual.rms, mudancas.descricao ?? atual.descricao);
+    const outro = demo.ler('catalogo_medicamentos').find(m => chaveMedicamento(m.rms, m.descricao) === chave && String(m.id) !== String(id));
+    if (outro) throw new ApiError(`Já existe '${outro.descricao}' com esse RMS.`, 400);
+    return demo.atualizar('catalogo_medicamentos', id, { ...mudancas, atualizado_em: new Date().toISOString() });
+  },
+
+  async importarCatalogoMedicamentos(itens) {
+    if (!MODO_DEMO) return request('/catalogo-medicamentos/importar', { method: 'POST', body: { itens } });
+    if (!Array.isArray(itens) || !itens.length) throw new ApiError('Nenhum medicamento para importar.', 400);
+    if (itens.length > 1000) throw new ApiError('Importe no máximo 1000 medicamentos por vez.', 400);
+
+    const lista = demo.ler('catalogo_medicamentos');
+    const vistos = new Set();
+    const erros = [];
+    let criados = 0, atualizados = 0, iguais = 0;
+
+    itens.forEach((item, i) => {
+      const linha = item?.linha ?? i + 1;
+      let descricao, rms, laboratorio;
+      try {
+        descricao = validarDescricaoMedicamento(item?.descricao);
+        rms = validarRms(item?.rms);
+        laboratorio = validarLaboratorio(item?.laboratorio);
+      } catch (err) {
+        erros.push({ linha, nome: String(item?.descricao ?? ''), motivo: err.message });
+        return;
+      }
+      const chave = chaveMedicamento(rms, descricao);
+      if (vistos.has(chave)) { erros.push({ linha, nome: descricao, motivo: 'Medicamento repetido no arquivo.' }); return; }
+      vistos.add(chave);
+
+      const existente = lista.find(m => chaveMedicamento(m.rms, m.descricao) === chave);
+      if (!existente) {
+        const agora = new Date().toISOString();
+        lista.push({ id: Date.now() + i, rms, descricao, laboratorio, ativo: true, criado_em: agora, atualizado_em: agora });
+        criados++;
+      } else if (existente.laboratorio !== laboratorio || !existente.ativo) {
+        Object.assign(existente, { laboratorio, ativo: true, atualizado_em: new Date().toISOString() });
+        atualizados++;
+      } else iguais++;
+    });
+
+    demo.gravar('catalogo_medicamentos', lista);
     return { criados, atualizados, iguais, erros };
   },
 };

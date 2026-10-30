@@ -48,13 +48,12 @@ export function botoesAcoes(id, { excluir = true } = {}) {
       : '');
 }
 
-/** Liga os botões `data-acao` (editar, excluir, reativar) dentro de `container`. */
-export function ligarAcoes(container, { editar, excluir, reativar }) {
-  const acoes = { editar, excluir, reativar };
+/** Liga os botões `data-acao` dentro de `container`: `acoes` mapeia o nome da ação para a função (recebe o id). */
+export function ligarAcoes(container, acoes) {
   container.querySelectorAll('[data-acao]').forEach(botao => {
     botao.addEventListener('click', (ev) => {
       ev.stopPropagation();
-      acoes[botao.dataset.acao]?.(botao.dataset.id);
+      acoes[botao.dataset.acao]?.(botao.dataset.id, botao);
     });
   });
 }

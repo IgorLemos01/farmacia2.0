@@ -119,7 +119,7 @@ export async function renderDashboard(container, searchTerm, filtros = {}) {
     ...receitas.map(r => ({
       tipo: 'Receita',
       cliente: r.cliente_nome || '—',
-      descricao: r.medico_prescritor,
+      descricao: r.medicamentos || r.medico_prescritor || 'Receita',
       data: r.data_venda,
       valor: null,
       ts: r.criado_em || r.data_venda,

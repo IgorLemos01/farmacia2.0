@@ -180,6 +180,38 @@ Como funciona:
   **Reimportar devolve os exames existentes ao valor do arquivo.**
 - No modo demonstração o catálogo é uma amostra fictícia (os preços reais não ficam no site público).
 
+## Receitas e catálogo de medicamentos
+
+**Catálogo** (tabela `catalogo_medicamentos`: RMS, descrição, laboratório) — mesmas regras do catálogo
+de exames: só o admin cria/edita/desativa/importa; qualquer logado consulta. A identidade de um item é
+o par **RMS + descrição**. Tela: **Configurações → Catálogo de Medicamentos**.
+
+| Método | Rota                                | Quem            | Descrição                                           |
+|--------|-------------------------------------|-----------------|-----------------------------------------------------|
+| GET    | /api/catalogo-medicamentos?ativos=true | qualquer logado | Lista (só os disponíveis com `ativos=true`)         |
+| POST   | /api/catalogo-medicamentos          | admin           | Adiciona (`descricao`, `rms`?, `laboratorio`?)      |
+| PUT    | /api/catalogo-medicamentos/{id}     | admin           | Altera campos ou `ativo` (false = remover)          |
+| POST   | /api/catalogo-medicamentos/importar | admin           | Importa `{itens: [{rms, descricao, laboratorio}]}`  |
+
+- **Importar CSV**: colunas `RMS`, `Descrição`, `Laboratório` (colunas extras como Lote/Quantidade são
+  ignoradas, então a planilha de estoque serve). O RMS tem 13 dígitos e é tratado como **texto**:
+  **não abra e salve o CSV no Excel** (ele converte para notação científica e apaga dígitos; a importação
+  recusa essas linhas). Reimportar atualiza o laboratório de quem já existe e nunca apaga nada.
+- **Receita** = cabeçalho (`receitas`: paciente, data, médico opcional, observações) + itens
+  (`receita_itens`). `POST /api/receitas` recebe `itens: [{catalogo_id, dose?, posologia?, lote?, validade?,
+  quantidade?}]` (de 1 a 12). **RMS, descrição e laboratório são copiados do catálogo** no momento da
+  receita e não mudam se o catálogo mudar. No `PUT`, `itens` substitui a lista; `{id}` de um item existente
+  mantém a cópia original, `{catalogo_id}` troca por um do catálogo.
+- Medicamento é sempre escolhido do catálogo (a tela e a API recusam texto livre).
+- **PDF**: gerado no navegador com jsPDF (carregado sob demanda, ~130 KB comprimido, só quando se pede o
+  PDF), no padrão da ficha da farmácia. Textos fixos em `src/js/pdf.js` (`EMPRESA`, `FARMACEUTICO`,
+  `AVISO_LEGAL`). A ficha tem no mínimo 3 blocos de medicamento (em branco para preencher à mão). Dose,
+  posologia, médico e observações ficam salvos no sistema mas **não saem no PDF** (a ficha não tem
+  espaço para eles).
+- **Mudança de banco**: `receitas` perdeu a coluna `medicamentos` e ganhou `observacoes`
+  (`medico_prescritor` agora é opcional), e existe a tabela nova `receita_itens`. Se o banco já tinha a
+  tabela `receitas` antiga, apague-a antes (`DROP TABLE receitas;`) para a nova ser criada.
+
 ## Editar e excluir registros
 
 Clientes, manipulações, exames e receitas têm `PUT` e `DELETE` na API e botões de editar/excluir

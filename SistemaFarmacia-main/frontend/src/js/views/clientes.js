@@ -329,8 +329,11 @@ export async function renderClientes(container, searchTerm = '') {
             ? `<p style="font-size: 0.78rem; color: var(--text-muted); font-style: italic; margin-top: 6px;">Nenhuma receita registrada.</p>`
             : h.receitas.map(r => `
                 <div style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 12px; margin-top: 8px;">
-                  <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-title);">${esc(r.medico_prescritor)}</div>
-                  <div style="font-size: 0.78rem; color: var(--text-body); margin-top: 4px;"><strong>Prescrição:</strong> ${esc(r.medicamentos)}</div>
+                  <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-title);">${r.medico_prescritor ? esc(r.medico_prescritor) : 'Receita'}</div>
+                  <div style="font-size: 0.78rem; color: var(--text-body); margin-top: 4px;">
+                    ${(r.itens?.length ? r.itens : [{ medicamento: r.medicamentos || '—' }]).map(i => `
+                      <div>• ${esc(i.medicamento)}${i.quantidade ? ` <span style="color: var(--text-muted);">(${esc(i.quantidade)} un.)</span>` : ''}</div>`).join('')}
+                  </div>
                   <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">Data de atendimento: ${esc(r.data_venda)}</div>
                 </div>
               `).join('')

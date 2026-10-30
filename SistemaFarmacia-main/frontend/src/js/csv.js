@@ -101,6 +101,61 @@ export function lerCsvExames(textoBruto) {
   return { itens, erros };
 }
 
+const NOTACAO_CIENTIFICA = /^\d+([.,]\d+)?e[+-]?\d+$/i;
+
+/**
+ * Lê o CSV de medicamentos (exportado do Excel/Google Planilhas).
+ *
+ * - Com linha de título, acha as colunas pelo nome: "RMS", "Descrição" (ou Medicamento/Produto)
+ *   e "Laboratório" (ou Fabricante). Colunas extras (Lote, Validade, Quantidade…) são ignoradas,
+ *   então dá para importar direto a planilha de estoque.
+ * - Sem título, usa as colunas na ordem: RMS, Descrição, Laboratório.
+ *
+ * @returns {{ itens: {linha:number, rms:string, descricao:string, laboratorio:string}[],
+ *             erros: {linha:number, nome:string, motivo:string}[] }}
+ */
+export function lerCsvMedicamentos(textoBruto) {
+  const texto = String(textoBruto ?? '').replace(/^\uFEFF/, '');
+  const linhas = tokenizar(texto, detectarDelimitador(texto));
+
+  let col = { rms: 0, descricao: 1, laboratorio: 2 };
+  let inicio = 0;
+
+  const cabecalho = (linhas[0] || []).map(semAcentoMinusculo);
+  const achar = regex => cabecalho.findIndex(c => regex.test(c));
+  const ix = {
+    rms: achar(/^rms\b|registro/),
+    descricao: achar(/descri|medicamento|produto|^nome/),
+    laboratorio: achar(/laborat|fabricante/),
+  };
+  if (ix.rms >= 0 || ix.descricao >= 0 || ix.laboratorio >= 0) {
+    inicio = 1;
+    col = {
+      rms: ix.rms >= 0 ? ix.rms : col.rms,
+      descricao: ix.descricao >= 0 ? ix.descricao : col.descricao,
+      laboratorio: ix.laboratorio >= 0 ? ix.laboratorio : col.laboratorio,
+    };
+  }
+
+  const itens = [];
+  const erros = [];
+  for (let i = inicio; i < linhas.length; i++) {
+    const celulas = linhas[i];
+    if (celulas.every(c => !String(c).trim())) continue; // linha em branco
+    const linha = i + 1;
+    const limpar = valor => String(valor ?? '').replace(/\s+/g, ' ').trim();
+    const descricao = limpar(celulas[col.descricao]);
+    const rms = String(celulas[col.rms] ?? '').replace(/\s/g, '');
+    const laboratorio = limpar(celulas[col.laboratorio]);
+
+    if (!descricao) erros.push({ linha, nome: '', motivo: 'Sem descrição do medicamento.' });
+    else if (NOTACAO_CIENTIFICA.test(rms)) {
+      erros.push({ linha, nome: descricao, motivo: `RMS em notação científica ("${rms}"): o Excel estragou o número. Use o CSV original.` });
+    } else itens.push({ linha, rms, descricao, laboratorio });
+  }
+  return { itens, erros };
+}
+
 /**
  * Lê um arquivo de texto escolhendo a codificação certa: planilhas salvas no Excel
  * do Windows costumam vir em Windows-1252 e ficariam com acentos quebrados em UTF-8.
