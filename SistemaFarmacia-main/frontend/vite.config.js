@@ -3,6 +3,8 @@ import { resolve } from 'path';
 
 export default defineConfig({
   root: '.',
+  // Caminhos relativos: o site funciona na raiz do domínio ou em uma subpasta
+  base: './',
   build: {
     outDir: 'dist',
     rollupOptions: {

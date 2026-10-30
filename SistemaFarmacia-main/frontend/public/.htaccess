@@ -1,0 +1,38 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# FARMÁCIA COUTO — Configuração do servidor (Hostinger / Apache / LiteSpeed)
+# Este arquivo vai junto no build (frontend/dist/.htaccess). Envie-o para a
+# pasta public_html junto com o restante do conteúdo de frontend/dist.
+# ─────────────────────────────────────────────────────────────────────────────
+
+Options -Indexes
+DirectoryIndex index.html
+
+# Força HTTPS (ative depois de instalar o certificado SSL na Hostinger)
+# RewriteEngine On
+# RewriteCond %{HTTPS} !=on
+# RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+<IfModule mod_headers.c>
+  # Cabeçalhos de segurança
+  Header always set X-Frame-Options "DENY"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+  # Ao publicar a API, adicione o domínio dela em connect-src (ex.: connect-src 'self' https://api.seudominio.com.br)
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; img-src 'self' data: https:; frame-src https://www.google.com; frame-ancestors 'none';"
+
+  # Arquivos com hash no nome (gerados pelo build) nunca mudam: cache de 1 ano
+  <FilesMatch "-[A-Za-z0-9_-]{8}\.(js|css|png|jpg|jpeg|webp|svg|woff2?)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  # Páginas HTML: sempre buscar a versão mais nova
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
+
+# Compressão
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript image/svg+xml
+</IfModule>

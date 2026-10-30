@@ -14,7 +14,7 @@ SistemaFarmacia/
 
 - **Envie as alterações direto para a branch `main`** (autorizado pelo dono do repositório).
   Ao terminar uma mudança: verifique o build (`npm run build`), faça o commit e `git push origin HEAD:main`.
-- A `main` é publicada automaticamente na Vercel, então tudo que chega nela vai ao ar.
+- A hospedagem (Hostinger) é atualizada manualmente: ver "Publicação" abaixo.
 
 ---
 
@@ -41,14 +41,28 @@ npm run build
 
 ### Modo API x modo demonstração
 
-- Com `VITE_API_URL` definida (`frontend/.env` ou variável na Vercel), o sistema usa a API
+- Com `VITE_API_URL` definida em `frontend/.env` **no momento do build**, o sistema usa a API
   real e exige login. Erros da API aparecem na tela — não há fallback para dados fictícios.
 - Sem `VITE_API_URL`, o sistema roda em **modo demonstração**: dados fictícios guardados só
   no navegador, sem login, com o aviso "Modo demonstração" no topo.
 - Ao publicar a API, adicione o domínio dela em `connect-src` do `Content-Security-Policy`
-  no `vercel.json` (hoje só `'self'` é permitido).
+  em `frontend/public/.htaccess` (hoje só `'self'` é permitido).
 - Todo dado vindo do usuário/banco deve passar por `escapeHtml` (`src/js/utils.js`) antes de
   entrar em templates HTML.
+
+### Publicação (Hostinger)
+
+O frontend é estático: o build gera `frontend/dist/` com `index.html` (landing),
+`sistema.html`, a pasta `assets/` e o `.htaccess` (cabeçalhos de segurança e cache,
+vindo de `frontend/public/.htaccess`).
+
+1. `npm run build` (na raiz do projeto)
+2. No hPanel da Hostinger → Gerenciador de Arquivos → `public_html`, envie **todo o conteúdo**
+   de `frontend/dist/` (inclusive o `.htaccess`, que é um arquivo oculto).
+
+Os caminhos são relativos (`base: './'` no Vite), então o site também funciona dentro de
+uma subpasta. A API Flask não roda em hospedagem compartilhada: precisa de um plano VPS
+(no VPS, prefira `DB_TYPE=mysql`).
 
 ---
 

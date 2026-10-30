@@ -44,3 +44,13 @@ cd backend && python -m pytest      # backend (pytest)
 npm run build
 ```
 Os arquivos prontos para publicação serão gerados em `frontend/dist/`.
+
+### 4. Ver o build final no navegador
+```bash
+npm run build && npm run preview
+```
+Acesse `http://localhost:4173`.
+
+### 5. Publicar (Hostinger)
+Envie todo o conteúdo de `frontend/dist/` (inclusive o `.htaccess`) para a pasta `public_html`.
+Detalhes no `CLAUDE.md`.
