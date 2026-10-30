@@ -94,6 +94,11 @@ def create_app(config_extra: dict | None = None) -> Flask:
     api.add_namespace(catalogo_ns)
     api.add_namespace(catalogo_med_ns)
 
+    # --- Comandos de terminal (criar-admin, redefinir-senha) ---
+    from app.cli import registrar as registrar_comandos
+
+    registrar_comandos(app)
+
     # --- Cria as tabelas no banco se ainda não existirem ---
     with app.app_context():
         from app import models  # noqa: garante que os modelos são importados antes do create_all

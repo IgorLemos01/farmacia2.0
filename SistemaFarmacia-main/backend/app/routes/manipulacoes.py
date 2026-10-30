@@ -1,6 +1,6 @@
 from flask import request
 from flask_restx import Namespace, Resource, fields
-from flask_jwt_extended import jwt_required
+from app.auth_utils import modulo_required
 
 from app.routes.campos import NumeroOpcional, TextoOpcional
 from app.services.manipulacao_service import ManipulacaoService
@@ -37,7 +37,7 @@ modelo_manipulacao_edicao = ns.model(
 
 @ns.route("")
 class ManipulacaoListaCriacao(Resource):
-    @jwt_required()
+    @modulo_required('manipulacoes', 'dashboard')
     @ns.doc(
         description="Lista pedidos de manipulação, com filtro opcional por cliente e paginação.",
         security="Bearer",
@@ -56,7 +56,7 @@ class ManipulacaoListaCriacao(Resource):
         resultado = ManipulacaoService.listar(cliente_id=cliente_id, limite=limite, pagina=pagina)
         return resultado, 200
 
-    @jwt_required()
+    @modulo_required('manipulacoes')
     @ns.expect(modelo_manipulacao_entrada, validate=True)
     @ns.doc(description="Registra um novo pedido de manipulação para um cliente.", security="Bearer")
     def post(self):
@@ -72,7 +72,7 @@ class ManipulacaoListaCriacao(Resource):
 @ns.route("/<int:id>")
 @ns.param("id", "ID do pedido de manipulação")
 class ManipulacaoDetalhe(Resource):
-    @jwt_required()
+    @modulo_required('manipulacoes', 'dashboard')
     @ns.doc(description="Obtém detalhes de um pedido de manipulação.", security="Bearer")
     def get(self, id):
         """Obter manipulação por ID"""
@@ -81,7 +81,7 @@ class ManipulacaoDetalhe(Resource):
             ns.abort(404, "Pedido de manipulação não encontrado.")
         return manipulacao.to_dict(), 200
 
-    @jwt_required()
+    @modulo_required('manipulacoes')
     @ns.expect(modelo_manipulacao_edicao, validate=False)
     @ns.doc(description="Atualiza dados de uma manipulação existente.", security="Bearer")
     def put(self, id):
@@ -93,7 +93,7 @@ class ManipulacaoDetalhe(Resource):
         except ValueError as e:
             ns.abort(400, str(e))
 
-    @jwt_required()
+    @modulo_required('manipulacoes')
     @ns.doc(description="Exclui um pedido de manipulação.", security="Bearer")
     def delete(self, id):
         """Excluir manipulação"""

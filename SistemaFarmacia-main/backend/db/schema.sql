@@ -18,14 +18,16 @@ CREATE DATABASE IF NOT EXISTS farmacia_couto
 USE farmacia_couto;
 
 -- -------------------------------------------------------------
--- 1. USUARIOS — Funcionários/atendentes do sistema
+-- 1. USUARIOS — Administradores e funcionários do sistema
+--    `modulos` guarda os módulos liberados ao funcionário (ex.: 'clientes,receitas'); o admin acessa todos.
 -- -------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS usuarios (
     id          INT             NOT NULL AUTO_INCREMENT,
     nome        VARCHAR(120)    NOT NULL,
     email       VARCHAR(120)    NOT NULL,
     senha_hash  VARCHAR(255)    NOT NULL,
-    perfil      ENUM('admin', 'atendente') NOT NULL DEFAULT 'atendente',
+    perfil      ENUM('admin', 'funcionario') NOT NULL DEFAULT 'funcionario',
+    modulos     VARCHAR(200)    NOT NULL DEFAULT '',
     ativo       TINYINT(1)      NOT NULL DEFAULT 1,
     criado_em   DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
 

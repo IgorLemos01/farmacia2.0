@@ -4,9 +4,9 @@ from tests.conftest import cadastrar, criar_medicamento, login
 
 
 @pytest.fixture
-def auth_atendente(client, admin_token):
-    cadastrar(client, "atendente@farmacia.com", token=admin_token)
-    return {"Authorization": f"Bearer {login(client, 'atendente@farmacia.com')}"}
+def auth_funcionario(client, admin_token):
+    cadastrar(client, "funcionario@farmacia.com", token=admin_token)
+    return {"Authorization": f"Bearer {login(client, 'funcionario@farmacia.com')}"}
 
 
 def _post(client, auth, **corpo):
@@ -18,14 +18,14 @@ def test_exige_login(client):
     assert client.get("/api/catalogo-medicamentos").status_code == 401
 
 
-def test_atendente_consulta_mas_nao_altera(client, auth, auth_atendente):
+def test_funcionario_consulta_mas_nao_altera(client, auth, auth_funcionario):
     med = criar_medicamento(client, auth)
-    lista = client.get("/api/catalogo-medicamentos?ativos=true", headers=auth_atendente)
+    lista = client.get("/api/catalogo-medicamentos?ativos=true", headers=auth_funcionario)
     assert lista.status_code == 200 and len(lista.get_json()["itens"]) == 1
 
-    assert _post(client, auth_atendente, descricao="Novo", rms="1").status_code == 403
-    assert client.put(f"/api/catalogo-medicamentos/{med['id']}", json={"laboratorio": "X"}, headers=auth_atendente).status_code == 403
-    assert client.post("/api/catalogo-medicamentos/importar", json={"itens": [{"descricao": "X"}]}, headers=auth_atendente).status_code == 403
+    assert _post(client, auth_funcionario, descricao="Novo", rms="1").status_code == 403
+    assert client.put(f"/api/catalogo-medicamentos/{med['id']}", json={"laboratorio": "X"}, headers=auth_funcionario).status_code == 403
+    assert client.post("/api/catalogo-medicamentos/importar", json={"itens": [{"descricao": "X"}]}, headers=auth_funcionario).status_code == 403
 
 
 # ───────────── cadastro e edição ─────────────

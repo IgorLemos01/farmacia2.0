@@ -5,6 +5,8 @@
 import { state } from './state.js';
 import { api, sessao, MODO_DEMO } from './api.js';
 import { escapeHtml } from './utils.js';
+import { aplicarPermissoesNaTela } from './menu.js';
+import { PERFIS, podeAcessar, primeiraRotaPermitida } from './permissoes.js';
 import { renderDashboard } from './views/dashboard.js';
 import { renderClientes } from './views/clientes.js';
 import { renderManipulacoes } from './views/manipulacoes.js';
@@ -56,7 +58,8 @@ class AppRouter {
   }
 
   navigate(route) {
-    if (!ROUTE_CONFIG[route]) route = 'dashboard';
+    // Tela inexistente ou sem permissão: ignora (o menu já esconde esses itens)
+    if (!ROUTE_CONFIG[route] || !podeAcessar(state.currentUser, route)) return;
     state.navigate(route);
   }
 
@@ -132,8 +135,12 @@ class AppRouter {
   }
 }
 
-// ── Sessão / login ──────────────────────────────────────────
-const PERFIS = { admin: 'Administrador', atendente: 'Atendente', demo: 'Dados fictícios' };
+// ── Sessão ──────────────────────────────────────────────────
+// A entrada acontece na página login.html; aqui só conferimos a sessão e aplicamos as permissões.
+
+function irParaLogin({ expirou = false } = {}) {
+  window.location.replace(expirou ? 'login.html?expirou=1' : 'login.html');
+}
 
 function exibirUsuario(usuario) {
   state.currentUser = usuario;
@@ -141,66 +148,64 @@ function exibirUsuario(usuario) {
   document.getElementById('userRoleText').textContent = PERFIS[usuario?.perfil] || '';
 }
 
-function abrirLogin() {
-  document.getElementById('modalLogin').classList.add('active');
-  document.getElementById('login_email').focus();
+function revelarTela() {
+  document.body.classList.remove('carregando');
 }
 
-function initSessao(router) {
+function mostrarAviso(titulo, texto, { botao } = {}) {
+  const area = document.getElementById('mainContentArea');
+  area.innerHTML = `
+    <div class="card" style="text-align: center; padding: 48px 24px;">
+      <p style="font-size: 1.05rem; font-weight: 800; color: var(--text-title); margin-bottom: 6px;">${escapeHtml(titulo)}</p>
+      <p style="font-size: 0.88rem; color: var(--text-muted);">${escapeHtml(texto)}</p>
+      ${botao ? `<button type="button" class="btn btn-primary" id="btnAvisoAcao" style="margin-top: 18px;">${escapeHtml(botao)}</button>` : ''}
+    </div>`;
+  return document.getElementById('btnAvisoAcao');
+}
+
+async function iniciarSessao(router) {
+  document.getElementById('btnSair').addEventListener('click', () => {
+    sessao.limpar();
+    irParaLogin();
+  });
+  window.addEventListener('fc:sessao-expirada', () => irParaLogin({ expirou: true }));
   // O nome mostrado no topo acompanha edições do próprio perfil
   window.addEventListener('fc:usuario-atualizado', () => exibirUsuario(sessao.usuario()));
 
-  if (MODO_DEMO) {
-    document.getElementById('badgeModoDemo').style.display = '';
-    exibirUsuario(sessao.usuario());
-    router.renderCurrent();
+  if (MODO_DEMO) document.getElementById('badgeModoDemo').style.display = '';
+
+  if (!sessao.autenticado()) {
+    irParaLogin();
     return;
   }
 
-  // Clique no perfil encerra a sessão
-  const badge = document.getElementById('userProfileBadge');
-  badge.title = 'Sair do sistema';
-  badge.addEventListener('click', () => {
-    if (!confirm('Deseja sair do sistema?')) return;
-    sessao.limpar();
-    window.location.reload();
-  });
-
-  const form = document.getElementById('formLogin');
-  const erroEl = document.getElementById('loginErro');
-  const btn = document.getElementById('btnEntrar');
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    erroEl.hidden = true;
-    btn.disabled = true;
-    try {
-      const usuario = await api.login(
-        document.getElementById('login_email').value.trim(),
-        document.getElementById('login_senha').value,
-      );
-      form.reset();
-      document.getElementById('modalLogin').classList.remove('active');
-      exibirUsuario(usuario);
-      router.renderCurrent();
-    } catch (err) {
-      erroEl.textContent = err.message;
-      erroEl.hidden = false;
-    } finally {
-      btn.disabled = false;
+  // Busca o usuário atual: valida o token e traz o perfil e os módulos de agora
+  // (o administrador pode ter mudado as permissões desde o login).
+  let usuario;
+  try {
+    usuario = await api.me();
+  } catch (err) {
+    if (err.status === 401) {
+      irParaLogin({ expirou: true });
+      return;
     }
-  });
-
-  window.addEventListener('fc:sessao-expirada', () => {
-    exibirUsuario(null);
-    abrirLogin();
-  });
-
-  if (sessao.token()) {
-    exibirUsuario(sessao.usuario());
-    router.renderCurrent();
-  } else {
-    abrirLogin();
+    revelarTela();
+    document.querySelector('.sidebar')?.setAttribute('hidden', '');
+    mostrarAviso('Não foi possível conectar', err.message, { botao: 'Tentar novamente' })?.addEventListener('click', () => window.location.reload());
+    return;
   }
+
+  exibirUsuario(usuario);
+  aplicarPermissoesNaTela(usuario);
+
+  const inicial = primeiraRotaPermitida(usuario);
+  revelarTela();
+  if (!inicial) {
+    mostrarAviso('Nenhum módulo liberado', 'Seu usuário ainda não tem acesso a nenhuma tela. Peça a um administrador para liberar.');
+    return;
+  }
+  state.currentRoute = inicial;
+  router.renderCurrent();
 }
 
 // Inicializa a aplicação ao carregar o DOM
@@ -212,5 +217,5 @@ document.addEventListener('DOMContentLoaded', () => {
     router.renderCurrent();
   });
 
-  initSessao(router);
+  iniciarSessao(router);
 });

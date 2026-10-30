@@ -6,6 +6,8 @@
 //  guardados só no navegador — nunca há "fallback" silencioso entre os dois.
 // ============================================================
 
+import { CHAVES_MODULOS } from './permissoes.js';
+
 const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 
 export const MODO_DEMO = !API_BASE_URL;
@@ -21,27 +23,36 @@ export class ApiError extends Error {
 const TOKEN_KEY = 'fc_jwt_token';
 const USUARIO_KEY = 'fc_usuario';
 
-const USUARIO_DEMO = { nome: 'Usuário Demonstração', perfil: 'demo' };
+const DEMO_SESSAO_KEY = 'fc_demo_sessao';
 
 export const sessao = {
   token() {
     return localStorage.getItem(TOKEN_KEY);
   },
+  /** Usuário logado, ou null. Na demonstração é o usuário fictício escolhido na tela de entrada. */
   usuario() {
-    if (MODO_DEMO) return USUARIO_DEMO;
+    if (MODO_DEMO) return demoSessaoUsuario();
     try {
       return JSON.parse(localStorage.getItem(USUARIO_KEY));
     } catch (_) {
       return null;
     }
   },
+  autenticado() {
+    return MODO_DEMO ? demoSessaoUsuario() !== null : !!localStorage.getItem(TOKEN_KEY);
+  },
   salvar(token, usuario) {
     localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(USUARIO_KEY, JSON.stringify(usuario));
+  },
+  /** Atualiza só os dados do usuário (ex.: módulos mudados pelo administrador), mantendo o token. */
+  guardarUsuario(usuario) {
     localStorage.setItem(USUARIO_KEY, JSON.stringify(usuario));
   },
   limpar() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USUARIO_KEY);
+    localStorage.removeItem(DEMO_SESSAO_KEY);
   },
 };
 
@@ -228,27 +239,46 @@ const MOCK_DATA = {
       nome: 'Administrador Demonstração',
       email: 'admin@demo.com',
       perfil: 'admin',
+      modulos: CHAVES_MODULOS,
       ativo: true,
       criado_em: '2026-10-01T09:00:00',
     },
     {
       id: 2,
-      nome: 'Atendente Demonstração',
-      email: 'atendente@demo.com',
-      perfil: 'atendente',
+      nome: 'Funcionário Demonstração',
+      email: 'funcionario@demo.com',
+      perfil: 'funcionario',
+      modulos: ['clientes', 'exames', 'receitas'],
       ativo: true,
       criado_em: '2026-10-05T14:30:00',
     },
   ],
 };
 
+/** Dados de versões antigas: perfil "atendente" vira "funcionario"; sem módulos, libera todos. */
+function normalizarUsuarioDemo(u) {
+  const perfil = u.perfil === 'admin' ? 'admin' : 'funcionario';
+  const modulos = perfil === 'admin' || !Array.isArray(u.modulos)
+    ? [...CHAVES_MODULOS]
+    : CHAVES_MODULOS.filter(chave => u.modulos.includes(chave));
+  return { ...u, perfil, modulos };
+}
+
+function demoSessaoUsuario() {
+  const id = localStorage.getItem(DEMO_SESSAO_KEY);
+  if (!id) return null;
+  return demo.ler('usuarios').find(u => String(u.id) === id && u.ativo) ?? null;
+}
+
 const demo = {
   ler(chave) {
+    let lista;
     try {
       const v = localStorage.getItem('fc_demo_' + chave);
-      if (v) return JSON.parse(v);
+      if (v) lista = JSON.parse(v);
     } catch (_) {}
-    return structuredClone(MOCK_DATA[chave]);
+    lista = lista ?? structuredClone(MOCK_DATA[chave]);
+    return chave === 'usuarios' ? lista.map(normalizarUsuarioDemo) : lista;
   },
   gravar(chave, lista) {
     try {
@@ -320,6 +350,27 @@ function validarValorCatalogo(valor) {
   if (numero < 0) throw new ApiError('Valor não pode ser negativo.', 400);
   if (numero > 99999999.99) throw new ApiError('Valor muito alto.', 400);
   return Math.round(numero * 100) / 100;
+}
+
+/** Mesmas regras do backend para nome, e-mail, perfil e módulos de um usuário. */
+function validarUsuarioDemo({ nome, email, perfil, modulos }) {
+  const nomeLimpo = normalizarNome(nome);
+  if (nomeLimpo.length < 3) throw new ApiError('Nome deve ter pelo menos 3 caracteres.', 400);
+  const emailLimpo = String(email ?? '').trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(emailLimpo)) throw new ApiError('E-mail inválido.', 400);
+  if (perfil !== 'admin' && perfil !== 'funcionario') throw new ApiError("Perfil inválido. Use 'admin' ou 'funcionario'.", 400);
+  if (modulos !== undefined && modulos !== null && !Array.isArray(modulos)) throw new ApiError('Módulos inválidos: envie uma lista.', 400);
+  const invalido = (modulos || []).find(m => !CHAVES_MODULOS.includes(m));
+  if (invalido !== undefined) throw new ApiError(`Módulo inválido: '${invalido}'.`, 400);
+
+  const escolhidos = CHAVES_MODULOS.filter(chave => (modulos || []).includes(chave));
+  if (perfil === 'funcionario' && !escolhidos.length) throw new ApiError('Escolha ao menos um módulo para o funcionário.', 400);
+  return {
+    nome: nomeLimpo,
+    email: emailLimpo,
+    perfil,
+    modulos: perfil === 'admin' ? [...CHAVES_MODULOS] : escolhidos,
+  };
 }
 
 const mesmoNome = (a, b) => a.toLowerCase() === b.toLowerCase();
@@ -405,9 +456,34 @@ function montarItensReceita(itens, receitaAtual = null) {
 export const api = {
   // --- Autenticação ---
   async login(email, senha) {
+    if (MODO_DEMO) throw new ApiError('No modo demonstração não há senha: escolha um usuário da lista.', 400);
     const data = await request('/auth/login', { method: 'POST', body: { email, senha } });
     sessao.salvar(data.access_token, data.usuario);
     return data.usuario;
+  },
+
+  /** Dados atuais do usuário logado (perfil e módulos podem ter mudado desde o login). */
+  async me() {
+    if (MODO_DEMO) {
+      const usuario = demoSessaoUsuario();
+      if (!usuario) throw new ApiError('Sessão encerrada.', 401);
+      return usuario;
+    }
+    const usuario = await request('/auth/me');
+    sessao.guardarUsuario(usuario);
+    return usuario;
+  },
+
+  // Somente no modo demonstração: usuários fictícios para escolher na tela de entrada
+  usuariosDaDemonstracao() {
+    return demo.ler('usuarios').filter(u => u.ativo);
+  },
+
+  entrarNaDemonstracao(id) {
+    const usuario = demo.ler('usuarios').find(u => String(u.id) === String(id) && u.ativo);
+    if (!usuario) throw new ApiError('Escolha um usuário da lista.', 400);
+    localStorage.setItem(DEMO_SESSAO_KEY, String(usuario.id));
+    return usuario;
   },
 
   // --- Clientes ---
@@ -556,25 +632,39 @@ export const api = {
     return demo.ler('usuarios');
   },
 
-  async cadastrarUsuario({ nome, email, senha, perfil }) {
+  async cadastrarUsuario({ nome, email, senha, perfil, modulos }) {
     if (!MODO_DEMO) {
-      return (await request('/auth/cadastro', { method: 'POST', body: { nome, email, senha, perfil } })).usuario;
+      return (await request('/auth/cadastro', { method: 'POST', body: { nome, email, senha, perfil, modulos } })).usuario;
     }
-    if ((nome || '').trim().length < 3) throw new ApiError('Nome deve ter pelo menos 3 caracteres.', 400);
+    const dados = validarUsuarioDemo({ nome, email, perfil, modulos });
     if ((senha || '').length < 6) throw new ApiError('Senha deve ter pelo menos 6 caracteres.', 400);
-    if (demo.ler('usuarios').some(u => u.email === email.trim().toLowerCase())) {
-      throw new ApiError('E-mail já cadastrado.', 409);
-    }
-    // No modo demonstração a senha não é guardada: não existe login.
-    return demo.inserir('usuarios', { nome: nome.trim(), email: email.trim().toLowerCase(), perfil, ativo: true });
+    if (demo.ler('usuarios').some(u => u.email === dados.email)) throw new ApiError('E-mail já cadastrado.', 409);
+    // No modo demonstração a senha não é guardada: não existe login com senha.
+    return demo.inserir('usuarios', { ...dados, ativo: true });
   },
 
   async atualizarUsuario(id, dados) {
     if (!MODO_DEMO) return atualizarRegistro('usuarios', 'usuarios', 'usuario', id, dados);
-    if ('nome' in dados && (dados.nome || '').trim().length < 3) throw new ApiError('Nome deve ter pelo menos 3 caracteres.', 400);
+
+    const atual = demo.ler('usuarios').find(u => String(u.id) === String(id));
+    if (!atual) throw new ApiError('Usuário não encontrado.', 404);
+    const proprio = String(sessao.usuario()?.id) === String(id);
+
     if (dados.senha && dados.senha.length < 6) throw new ApiError('Senha deve ter pelo menos 6 caracteres.', 400);
+    if (proprio && 'perfil' in dados && dados.perfil !== 'admin') {
+      throw new ApiError('Você não pode remover o seu próprio acesso de administrador.', 400);
+    }
+    if (proprio && dados.ativo === false) throw new ApiError('Você não pode desativar o seu próprio usuário.', 400);
+    if ('ativo' in dados && typeof dados.ativo !== 'boolean') throw new ApiError("O campo 'ativo' deve ser verdadeiro ou falso.", 400);
+
+    const final = validarUsuarioDemo({
+      nome: 'nome' in dados ? dados.nome : atual.nome,
+      email: atual.email,
+      perfil: 'perfil' in dados ? dados.perfil : atual.perfil,
+      modulos: 'modulos' in dados ? dados.modulos : atual.modulos,
+    });
     const { senha: _senha, ...resto } = dados;
-    return demo.atualizar('usuarios', id, resto);
+    return demo.atualizar('usuarios', id, { ...resto, nome: final.nome, perfil: final.perfil, modulos: final.modulos });
   },
 
   // --- Catálogo de exames ---

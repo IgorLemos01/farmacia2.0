@@ -602,3 +602,38 @@
   .med-linha-1 .campo-autocomplete { grid-column: 1 / -1; }
   .paciente-card-dados { grid-template-columns: 1fr; }
 }
+
+/* --- Escolha de módulos (usuários) --- */
+.modulos-campo { border: none; padding: 0; min-width: 0; }
+.modulos-campo legend { padding: 0; margin-bottom: 8px; }
+
+.modulos-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.modulo-opcao {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #fafbfb;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.modulo-opcao:hover { border-color: var(--border-hover); }
+.modulo-opcao:has(input:checked) { background: var(--color-primary-light); border-color: var(--color-primary-accent); }
+.modulo-opcao:has(input:disabled) { cursor: not-allowed; opacity: 0.75; }
+.modulo-opcao input { margin-top: 3px; flex-shrink: 0; }
+.modulo-opcao span { display: flex; flex-direction: column; gap: 1px; font-size: 0.85rem; color: var(--text-title); }
+.modulo-opcao small { font-size: 0.74rem; color: var(--text-muted); }
+
+.modulos-dica { display: block; margin-top: 8px; font-size: 0.78rem; color: var(--text-muted); }
+
+@media (max-width: 560px) {
+  .modulos-grid { grid-template-columns: 1fr; }
+}

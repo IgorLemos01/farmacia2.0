@@ -13,7 +13,13 @@ modelo_usuario_edicao = ns.model(
     "UsuarioEdicao",
     {
         "nome": TextoOpcional(required=False, example="Ana Silva"),
-        "perfil": fields.String(required=False, enum=["admin", "atendente"], example="atendente"),
+        "perfil": fields.String(required=False, enum=["admin", "funcionario"], example="funcionario"),
+        "modulos": fields.List(
+            fields.String,
+            required=False,
+            example=["clientes", "receitas"],
+            description="Módulos liberados (dashboard, clientes, manipulacoes, exames, receitas). O admin acessa todos.",
+        ),
         "ativo": fields.Boolean(required=False, example=True, description="False desativa o acesso"),
         "senha": TextoOpcional(required=False, example="nova-senha", description="Redefine a senha (mín. 6 caracteres)"),
     },
@@ -36,7 +42,7 @@ class UsuarioDetalhe(Resource):
     @ns.expect(modelo_usuario_edicao, validate=False)
     @ns.doc(
         description=(
-            "Altera nome, perfil, situação (ativo) ou redefine a senha. "
+            "Altera nome, perfil, módulos, situação (ativo) ou redefine a senha. "
             "O administrador não pode rebaixar nem desativar o próprio usuário."
         ),
         security="Bearer",

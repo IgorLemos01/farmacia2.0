@@ -12,8 +12,9 @@ SistemaFarmacia/
 
 ## Fluxo de Git
 
-- **Envie as alterações direto para a branch `main`** (autorizado pelo dono do repositório).
-  Ao terminar uma mudança: verifique o build (`npm run build`), faça o commit e `git push origin HEAD:main`.
+- **Envie as alterações direto para a branch `main`** (autorizado pelo dono do repositório), depois que
+  o dono confirmar que em Settings → Pages a *Source* está em **GitHub Actions** (com "Deploy from a branch"
+  o site dá 404). Ao terminar uma mudança: verifique o build (`npm run build`), faça o commit e `git push origin HEAD:main`.
 - Toda alteração na `main` publica automaticamente a versão de demonstração no GitHub Pages
   (`.github/workflows/pages.yml`: roda os testes do frontend, faz o build e publica).
 - A hospedagem definitiva (Hostinger) é atualizada manualmente: ver "Publicação" abaixo.
@@ -25,7 +26,8 @@ SistemaFarmacia/
 **Tecnologia**: Vite + Vanilla JS (build multi-página)
 
 - `index.html` → landing page institucional (`src/css/landing.css`, `src/js/landing.js`)
-- `sistema.html` → sistema de gestão, aberto pelo botão "Área Interna" da landing
+- `login.html` → entrada do sistema (e-mail e senha), aberta pelo botão "Área Interna" da landing
+- `sistema.html` → sistema de gestão; sem login volta para `login.html`
 
 ```bash
 # Instalar dependências
@@ -44,9 +46,10 @@ npm run build
 ### Modo API x modo demonstração
 
 - Com `VITE_API_URL` definida em `frontend/.env` **no momento do build**, o sistema usa a API
-  real e exige login. Erros da API aparecem na tela — não há fallback para dados fictícios.
+  real e exige login (e-mail e senha em `login.html`). Erros da API aparecem na tela — não há fallback para dados fictícios.
 - Sem `VITE_API_URL`, o sistema roda em **modo demonstração**: dados fictícios guardados só
-  no navegador, sem login, com o aviso "Modo demonstração" no topo.
+  no navegador, com o aviso "Modo demonstração". Em `login.html` escolhe-se um usuário fictício
+  (administrador ou funcionário com módulos limitados), sem senha, para ver como cada perfil enxerga o sistema.
 - Ao publicar a API, adicione o domínio dela em `connect-src` do `Content-Security-Policy`
   em `frontend/public/.htaccess` (hoje só `'self'` é permitido).
 - Todo dado vindo do usuário/banco deve passar por `escapeHtml` (`src/js/utils.js`) antes de
@@ -55,7 +58,7 @@ npm run build
 ### Publicação (Hostinger)
 
 O frontend é estático: o build gera `frontend/dist/` com `index.html` (landing),
-`sistema.html`, a pasta `assets/` e o `.htaccess` (cabeçalhos de segurança e cache,
+`login.html`, `sistema.html`, a pasta `assets/` e o `.htaccess` (cabeçalhos de segurança e cache,
 vindo de `frontend/public/.htaccess`).
 
 1. `npm run build` (na raiz do projeto)
@@ -110,16 +113,35 @@ npm run dev:backend
 cd backend && python run.py
 ```
 
-### 5. Criar o primeiro usuário (administrador)
+### 5. Criar o administrador e os usuários
 
-Com o banco vazio, o **primeiro** `POST /api/auth/cadastro` não exige login e cria a conta
-como `admin`. A partir daí, só um admin logado cadastra novos usuários, pela tela
-**Configurações** do sistema (ou pelo Swagger).
+O cadastro **não é aberto**: `POST /api/auth/cadastro` só aceita token de administrador. Por isso o
+**primeiro administrador é criado no terminal**, no servidor, e a senha nunca fica no repositório:
 
-**Gestão de usuários** (somente admin, perfil conferido no banco a cada chamada):
-- Usuários não são excluídos: desative o acesso. A desativação vale **na hora**, mesmo para
-  quem está logado (o token passa a responder 401).
+```bash
+cd backend
+flask --app run criar-admin --nome "Seu Nome" --email voce@farmacia.com   # pede a senha (oculta)
+flask --app run criar-admin --nome "Seu Nome" --email voce@farmacia.com --gerar-senha   # gera e mostra uma senha
+flask --app run redefinir-senha --email voce@farmacia.com                 # se esquecer a senha
+```
+
+(`--senha` ou a variável `ADMIN_SENHA` também servem para scripts.) Depois, o administrador cria os demais
+usuários em **Configurações → Usuários**, escolhendo o **perfil** e os **módulos**.
+
+**Perfis e módulos** (regra aplicada no servidor em toda rota; a tela só esconde o que daria 403):
+- `admin`: todos os módulos + Configurações (usuários e catálogos).
+- `funcionario`: só os módulos marcados (`dashboard`, `clientes`, `manipulacoes`, `exames`, `receitas`;
+  ao menos um). Guardados em `usuarios.modulos`, separados por vírgula.
+- Dashboard é só consulta das listas dos outros módulos. Quem tem Manipulações, Exames ou Receitas também
+  consulta a lista de Clientes (para escolher o paciente); o dossiê do cliente exige o módulo Clientes.
+- Permissões são lidas do banco a cada chamada: mudar módulos ou desativar vale **na hora**, sem novo login.
+- Senha: mínimo de 6 caracteres. Recomendado como próximo passo: limite de tentativas de login e mínimo de 8.
+
+**Gestão de usuários** (somente admin):
+- Usuários não são excluídos: desative o acesso (o token passa a responder 401).
 - O admin não pode rebaixar nem desativar a si mesmo (sempre sobra um admin ativo).
+- **Mudança de banco**: `usuarios.perfil` agora é `admin`/`funcionario` (antes `atendente`) e existe a
+  coluna `modulos`. Banco novo: nada a fazer. Banco antigo: ver `backend/db/` e ajuste a tabela.
 
 ### 6. Testes
 
@@ -145,22 +167,22 @@ Você verá a interface do Swagger com todos os endpoints disponíveis para test
 
 | Método | Rota                     | Descrição                                                        |
 |--------|--------------------------|------------------------------------------------------------------|
-| POST   | /api/auth/cadastro       | Cria usuário — exige token de admin (exceto o primeiro usuário)  |
+| POST   | /api/auth/cadastro       | Cria usuário (`perfil`, `modulos`) — exige token de admin        |
 | POST   | /api/auth/login          | Retorna token JWT                                                |
-| GET    | /api/auth/me             | Dados do usuário logado (requer token)                           |
+| GET    | /api/auth/me             | Dados do usuário logado, com perfil e módulos (requer token)     |
 
 ## Endpoints de Usuários (somente admin)
 
 | Método | Rota                | Descrição                                                    |
 |--------|---------------------|--------------------------------------------------------------|
 | GET    | /api/usuarios       | Lista os usuários                                            |
-| PUT    | /api/usuarios/{id}  | Altera nome, perfil, ativo (desativar) ou redefine a senha   |
+| PUT    | /api/usuarios/{id}  | Altera nome, perfil, módulos, ativo (desativar) ou a senha  |
 
 ## Endpoints do Catálogo de Exames
 
 | Método | Rota                              | Quem                | Descrição                                              |
 |--------|-----------------------------------|---------------------|--------------------------------------------------------|
-| GET    | /api/catalogo-exames?ativos=true  | qualquer logado     | Lista (só os disponíveis com `ativos=true`)            |
+| GET    | /api/catalogo-exames?ativos=true  | quem tem o módulo   | Lista (só os disponíveis com `ativos=true`)            |
 | POST   | /api/catalogo-exames              | admin               | Adiciona exame (`nome`, `valor`)                       |
 | PUT    | /api/catalogo-exames/{id}         | admin               | Altera `nome`, `valor` ou `ativo` (false = remover)    |
 | POST   | /api/catalogo-exames/importar     | admin               | Importa `{itens: [{nome, valor}]}`; nome existente tem o valor atualizado |
@@ -188,7 +210,7 @@ o par **RMS + descrição**. Tela: **Configurações → Catálogo de Medicament
 
 | Método | Rota                                | Quem            | Descrição                                           |
 |--------|-------------------------------------|-----------------|-----------------------------------------------------|
-| GET    | /api/catalogo-medicamentos?ativos=true | qualquer logado | Lista (só os disponíveis com `ativos=true`)         |
+| GET    | /api/catalogo-medicamentos?ativos=true | quem tem o módulo | Lista (só os disponíveis com `ativos=true`)         |
 | POST   | /api/catalogo-medicamentos          | admin           | Adiciona (`descricao`, `rms`?, `laboratorio`?)      |
 | PUT    | /api/catalogo-medicamentos/{id}     | admin           | Altera campos ou `ativo` (false = remover)          |
 | POST   | /api/catalogo-medicamentos/importar | admin           | Importa `{itens: [{rms, descricao, laboratorio}]}`  |

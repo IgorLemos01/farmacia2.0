@@ -1,11 +1,9 @@
 # pyrefly: ignore[missing-import]
 from flask import request
 # pyrefly: ignore[missing-import]
-from flask_jwt_extended import jwt_required
-# pyrefly: ignore[missing-import]
 from flask_restx import Namespace, Resource, fields
 
-from app.auth_utils import admin_required
+from app.auth_utils import admin_required, modulo_required
 from app.routes.campos import TextoOpcional
 from app.services.catalogo_medicamento_service import CatalogoMedicamentoService
 
@@ -47,7 +45,7 @@ modelo_importacao = ns.model(
 
 @ns.route("")
 class MedicamentoLista(Resource):
-    @jwt_required()
+    @modulo_required('receitas')
     @ns.doc(
         description="Lista o catálogo. Qualquer usuário logado pode consultar (a receita usa esta lista).",
         security="Bearer",

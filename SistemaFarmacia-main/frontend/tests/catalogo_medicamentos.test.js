@@ -28,6 +28,7 @@ async function escolherArquivo(conteudo) {
 let alerta;
 beforeEach(() => {
   localStorage.clear();
+  localStorage.setItem('fc_demo_sessao', '1'); // entrou como o administrador da demonstração
   alerta = vi.fn();
   vi.stubGlobal('alert', alerta);
   vi.stubGlobal('confirm', vi.fn(() => true));

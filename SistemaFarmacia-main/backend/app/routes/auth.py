@@ -1,12 +1,12 @@
 # pyrefly: ignore[missing-import]
 from flask_restx import Namespace, Resource, fields
 # pyrefly: ignore[missing-import]
-from flask_jwt_extended import get_jwt_identity, jwt_required, verify_jwt_in_request
+from flask_jwt_extended import get_jwt_identity, jwt_required
 
+from app.auth_utils import admin_required
 from app.extensions import db
 from app.models.usuario import Usuario
-
-from app.services.auth_service import AuthService
+from app.services.auth_service import AuthService, EmailJaCadastrado
 
 # Namespace agrupa as rotas de autenticação e aparece como seção no Swagger
 ns = Namespace("auth", description="Cadastro e autenticação de usuários")
@@ -20,10 +20,16 @@ modelo_cadastro = ns.model(
         "email": fields.String(required=True, example="ana@farmaciacouto.com", description="E-mail de login"),
         "senha": fields.String(required=True, example="senha123", description="Senha (mín. 6 caracteres)"),
         "perfil": fields.String(
-            example="atendente",
-            description="Perfil do usuário: 'admin' ou 'atendente'",
-            enum=["admin", "atendente"],
-            default="atendente",
+            example="funcionario",
+            description="Perfil do usuário: 'admin' (acesso total) ou 'funcionario' (só os módulos liberados)",
+            enum=["admin", "funcionario"],
+            default="funcionario",
+        ),
+        "modulos": fields.List(
+            fields.String,
+            required=False,
+            example=["clientes", "receitas"],
+            description="Módulos do funcionário (dashboard, clientes, manipulacoes, exames, receitas). Ignorado para admin.",
         ),
     },
 )
@@ -41,48 +47,30 @@ modelo_login = ns.model(
 
 @ns.route("/cadastro")
 class Cadastro(Resource):
+    @admin_required
     @ns.expect(modelo_cadastro, validate=True)
     @ns.doc(
         description=(
-            "Cria um novo usuário. Requer token de um **admin**. "
-            "Exceção: se ainda não existe nenhum usuário, o primeiro cadastro é liberado "
-            "e vira admin automaticamente (configuração inicial do sistema)."
+            "Cria um novo usuário. Requer token de um **administrador**. "
+            "O primeiro administrador é criado pelo comando de terminal `flask --app run criar-admin`."
         ),
         security="Bearer",
     )
     def post(self):
         """Cadastrar novo usuário (somente admin)"""
         dados = ns.payload
-        primeiro_usuario = db.session.query(Usuario.id).first() is None
-
-        if not primeiro_usuario:
-            verify_jwt_in_request(optional=True)
-            identidade = get_jwt_identity()
-            if identidade is None:
-                ns.abort(401, "Faça login como administrador para cadastrar usuários.")
-            ator = db.session.get(Usuario, int(identidade))
-            if not ator or not ator.ativo or ator.perfil != "admin":
-                ns.abort(403, "Apenas administradores podem cadastrar usuários.")
-
-        nome = dados.get("nome", "").strip()
-        email = dados.get("email", "").strip()
-        senha = dados.get("senha", "")
-        perfil = dados.get("perfil", "atendente")
-
-        # Validações simples antes de passar para o serviço
-        if len(nome) < 3:
-            ns.abort(400, "Nome deve ter pelo menos 3 caracteres.")
-        if len(senha) < 6:
-            ns.abort(400, "Senha deve ter pelo menos 6 caracteres.")
-        if perfil not in ("admin", "atendente"):
-            ns.abort(400, "Perfil inválido. Use 'admin' ou 'atendente'.")
-        if primeiro_usuario:
-            perfil = "admin"
-
         try:
-            usuario = AuthService.cadastrar(nome, email, senha, perfil)
-        except ValueError as e:
+            usuario = AuthService.cadastrar(
+                dados.get("nome"),
+                dados.get("email"),
+                dados.get("senha"),
+                dados.get("perfil", "funcionario"),
+                dados.get("modulos"),
+            )
+        except EmailJaCadastrado as e:
             ns.abort(409, str(e))  # 409 Conflict = e-mail duplicado
+        except ValueError as e:
+            ns.abort(400, str(e))
 
         return {"mensagem": "Usuário cadastrado com sucesso.", "usuario": usuario.to_dict()}, 201
 

@@ -1,6 +1,6 @@
 from flask import request
 from flask_restx import Namespace, Resource, fields
-from flask_jwt_extended import jwt_required
+from app.auth_utils import modulo_required
 
 from app.routes.campos import TextoOpcional
 from app.services.receita_service import ReceitaService
@@ -45,7 +45,7 @@ modelo_receita_edicao = ns.model(
 
 @ns.route("")
 class ReceitaListaCriacao(Resource):
-    @jwt_required()
+    @modulo_required('receitas', 'dashboard')
     @ns.doc(
         description="Lista receitas médicas registradas, com filtro opcional por paciente/cliente e paginação.",
         security="Bearer",
@@ -64,7 +64,7 @@ class ReceitaListaCriacao(Resource):
         resultado = ReceitaService.listar(cliente_id=cliente_id, limite=limite, pagina=pagina)
         return resultado, 200
 
-    @jwt_required()
+    @modulo_required('receitas')
     @ns.expect(modelo_receita_entrada, validate=True)
     @ns.doc(description="Cadastra uma nova receita médica associada ao paciente.", security="Bearer")
     def post(self):
@@ -80,7 +80,7 @@ class ReceitaListaCriacao(Resource):
 @ns.route("/<int:id>")
 @ns.param("id", "ID da receita")
 class ReceitaDetalhe(Resource):
-    @jwt_required()
+    @modulo_required('receitas', 'dashboard')
     @ns.doc(description="Obtém detalhes de uma receita médica.", security="Bearer")
     def get(self, id):
         """Obter receita por ID"""
@@ -89,7 +89,7 @@ class ReceitaDetalhe(Resource):
             ns.abort(404, "Receita não encontrada.")
         return receita.to_dict(), 200
 
-    @jwt_required()
+    @modulo_required('receitas')
     @ns.expect(modelo_receita_edicao, validate=False)
     @ns.doc(description="Atualiza dados de uma receita médica existente.", security="Bearer")
     def put(self, id):
@@ -101,7 +101,7 @@ class ReceitaDetalhe(Resource):
         except ValueError as e:
             ns.abort(400, str(e))
 
-    @jwt_required()
+    @modulo_required('receitas')
     @ns.doc(description="Exclui uma receita médica.", security="Bearer")
     def delete(self, id):
         """Excluir receita"""

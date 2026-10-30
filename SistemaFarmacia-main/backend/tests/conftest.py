@@ -2,6 +2,8 @@ import pytest
 
 from app import create_app
 from app.extensions import db
+from app.modulos import MODULOS
+from app.services.auth_service import AuthService
 
 
 @pytest.fixture
@@ -22,13 +24,15 @@ def client(app):
     return app.test_client()
 
 
-def cadastrar(client, email, perfil="atendente", token=None):
+def cadastrar(client, email, perfil="funcionario", token=None, modulos=None):
+    """Cria um usuário pela API. Funcionário sem `modulos` informados recebe todos os módulos."""
     headers = {"Authorization": f"Bearer {token}"} if token else {}
-    return client.post(
-        "/api/auth/cadastro",
-        json={"nome": "Usuário Teste", "email": email, "senha": "senha123", "perfil": perfil},
-        headers=headers,
-    )
+    corpo = {"nome": "Usuário Teste", "email": email, "senha": "senha123", "perfil": perfil}
+    if modulos is not None:
+        corpo["modulos"] = modulos
+    elif perfil == "funcionario":
+        corpo["modulos"] = list(MODULOS)
+    return client.post("/api/auth/cadastro", json=corpo, headers=headers)
 
 
 def login(client, email):
@@ -38,8 +42,11 @@ def login(client, email):
 
 
 @pytest.fixture
-def admin_token(client):
-    assert cadastrar(client, "admin@farmacia.com").status_code == 201
+def admin_token(client, app):
+    # O cadastro pela API exige um admin logado; o primeiro admin nasce direto no banco
+    # (em produção, pelo comando `flask --app run criar-admin`).
+    with app.app_context():
+        AuthService.cadastrar("Usuário Teste", "admin@farmacia.com", "senha123", "admin")
     return login(client, "admin@farmacia.com")
 
 

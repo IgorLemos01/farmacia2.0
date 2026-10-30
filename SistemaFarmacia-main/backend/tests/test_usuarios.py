@@ -13,14 +13,14 @@ def _cabecalho(token):
 def test_listar_exige_admin(client, auth, admin_token):
     assert client.get("/api/usuarios").status_code == 401
 
-    cadastrar(client, "atendente@farmacia.com", token=admin_token)
-    atendente = _cabecalho(login(client, "atendente@farmacia.com"))
-    assert client.get("/api/usuarios", headers=atendente).status_code == 403
+    cadastrar(client, "funcionario@farmacia.com", token=admin_token)
+    funcionario = _cabecalho(login(client, "funcionario@farmacia.com"))
+    assert client.get("/api/usuarios", headers=funcionario).status_code == 403
 
     resp = client.get("/api/usuarios", headers=auth)
     assert resp.status_code == 200
     emails = [u["email"] for u in resp.get_json()["itens"]]
-    assert set(emails) == {"admin@farmacia.com", "atendente@farmacia.com"}
+    assert set(emails) == {"admin@farmacia.com", "funcionario@farmacia.com"}
     assert "senha_hash" not in resp.get_json()["itens"][0]
 
 
@@ -68,7 +68,7 @@ def test_validacao_nao_altera_nada_parcialmente(client, auth, admin_token):
 
 def test_admin_nao_pode_rebaixar_nem_desativar_a_si_mesmo(client, auth):
     meu_id = client.get("/api/auth/me", headers=auth).get_json()["id"]
-    assert client.put(f"/api/usuarios/{meu_id}", json={"perfil": "atendente"}, headers=auth).status_code == 400
+    assert client.put(f"/api/usuarios/{meu_id}", json={"perfil": "funcionario"}, headers=auth).status_code == 400
     assert client.put(f"/api/usuarios/{meu_id}", json={"ativo": False}, headers=auth).status_code == 400
     assert client.put(f"/api/usuarios/{meu_id}", json={"nome": "Meu Novo Nome"}, headers=auth).status_code == 200
 
@@ -98,7 +98,7 @@ def test_admin_rebaixado_perde_poder_mesmo_com_token_antigo(client, auth, admin_
     token_segundo = login(client, "segundo@farmacia.com")
     uid = _id_por_email(client, auth, "segundo@farmacia.com")
 
-    client.put(f"/api/usuarios/{uid}", json={"perfil": "atendente"}, headers=auth)
+    client.put(f"/api/usuarios/{uid}", json={"perfil": "funcionario"}, headers=auth)
 
     antigo = _cabecalho(token_segundo)  # o token ainda diz "admin"
     assert client.get("/api/usuarios", headers=antigo).status_code == 403

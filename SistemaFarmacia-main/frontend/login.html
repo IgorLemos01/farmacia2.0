@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Entrar — Farmácia Couto</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="/src/css/variables.css" />
+  <link rel="stylesheet" href="/src/css/components.css" />
+  <link rel="stylesheet" href="/src/css/login.css" />
+</head>
+<body class="login-page">
+  <main class="login-card">
+    <img src="/src/assets/logo.png" alt="Farmácia Couto" class="login-logo" />
+    <h1>Entrar no sistema</h1>
+    <p class="login-sub">Área interna, exclusiva da equipe da Farmácia Couto.</p>
+
+    <p class="login-info" id="avisoSessao" role="status" hidden></p>
+    <p class="login-aviso" id="avisoDemo" hidden>
+      <strong>Modo demonstração.</strong> Nenhum dado é real e não há senha: escolha um usuário fictício para ver
+      como cada perfil enxerga o sistema.
+    </p>
+
+    <form id="formLogin" novalidate>
+      <div class="login-campos">
+        <!-- Com a API configurada: e-mail e senha -->
+        <div id="camposApi" class="login-campos">
+          <div class="form-group">
+            <label class="form-label" for="login_email">E-mail</label>
+            <input type="email" class="form-input" id="login_email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="seu@email.com" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="login_senha">Senha</label>
+            <div class="senha-wrap">
+              <input type="password" class="form-input" id="login_senha" autocomplete="current-password" placeholder="Sua senha" />
+              <button type="button" class="btn-olho" id="btnMostrarSenha" aria-label="Mostrar senha" aria-pressed="false" title="Mostrar senha">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modo demonstração: escolher um usuário fictício -->
+        <div id="camposDemo" class="form-group" hidden>
+          <label class="form-label" for="login_demo">Entrar como</label>
+          <select class="form-select" id="login_demo"></select>
+        </div>
+      </div>
+
+      <p class="login-erro" id="loginErro" role="alert" hidden></p>
+      <button type="submit" class="btn btn-primary" id="btnEntrar">Entrar</button>
+    </form>
+
+    <a href="./" class="login-voltar">← Voltar ao site</a>
+  </main>
+
+  <script type="module" src="/src/js/login-main.js"></script>
+</body>
+</html>

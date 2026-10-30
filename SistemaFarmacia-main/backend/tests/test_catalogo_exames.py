@@ -9,9 +9,9 @@ def cliente_id(client, auth):
 
 
 @pytest.fixture
-def auth_atendente(client, admin_token):
-    cadastrar(client, "atendente@farmacia.com", token=admin_token)
-    return {"Authorization": f"Bearer {login(client, 'atendente@farmacia.com')}"}
+def auth_funcionario(client, admin_token):
+    cadastrar(client, "funcionario@farmacia.com", token=admin_token)
+    return {"Authorization": f"Bearer {login(client, 'funcionario@farmacia.com')}"}
 
 
 # ───────────── permissões ─────────────
@@ -19,15 +19,15 @@ def test_exige_login(client):
     assert client.get("/api/catalogo-exames").status_code == 401
 
 
-def test_atendente_consulta_mas_nao_altera(client, auth, auth_atendente):
+def test_funcionario_consulta_mas_nao_altera(client, auth, auth_funcionario):
     exame = criar_catalogo(client, auth, "Hemograma", 13)
 
-    lista = client.get("/api/catalogo-exames?ativos=true", headers=auth_atendente)
+    lista = client.get("/api/catalogo-exames?ativos=true", headers=auth_funcionario)
     assert lista.status_code == 200 and len(lista.get_json()["itens"]) == 1
 
-    assert client.post("/api/catalogo-exames", json={"nome": "Novo", "valor": 1}, headers=auth_atendente).status_code == 403
-    assert client.put(f"/api/catalogo-exames/{exame['id']}", json={"valor": 99}, headers=auth_atendente).status_code == 403
-    assert client.post("/api/catalogo-exames/importar", json={"itens": [{"nome": "X", "valor": 1}]}, headers=auth_atendente).status_code == 403
+    assert client.post("/api/catalogo-exames", json={"nome": "Novo", "valor": 1}, headers=auth_funcionario).status_code == 403
+    assert client.put(f"/api/catalogo-exames/{exame['id']}", json={"valor": 99}, headers=auth_funcionario).status_code == 403
+    assert client.post("/api/catalogo-exames/importar", json={"itens": [{"nome": "X", "valor": 1}]}, headers=auth_funcionario).status_code == 403
 
 
 # ───────────── cadastro, edição, validações ─────────────

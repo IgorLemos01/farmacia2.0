@@ -4,10 +4,11 @@ from app import create_app
 from tests.conftest import cadastrar, login
 
 
-def test_primeiro_usuario_vira_admin_mesmo_pedindo_atendente(client):
-    resp = cadastrar(client, "primeiro@farmacia.com", perfil="atendente")
-    assert resp.status_code == 201
-    assert resp.get_json()["usuario"]["perfil"] == "admin"
+def test_cadastro_sem_login_e_recusado_mesmo_com_banco_vazio(client):
+    """Antes, quem chegasse primeiro criava o administrador. Agora o primeiro admin vem do comando de terminal."""
+    resp = cadastrar(client, "primeiro@farmacia.com", perfil="admin")
+    assert resp.status_code == 401
+    assert client.get("/api/usuarios").status_code == 401
 
 
 def test_cadastro_sem_token_bloqueado_apos_primeiro_usuario(client, admin_token):
@@ -15,18 +16,18 @@ def test_cadastro_sem_token_bloqueado_apos_primeiro_usuario(client, admin_token)
     assert resp.status_code == 401
 
 
-def test_atendente_nao_pode_cadastrar_usuarios(client, admin_token):
-    assert cadastrar(client, "atendente@farmacia.com", token=admin_token).status_code == 201
-    token_atendente = login(client, "atendente@farmacia.com")
+def test_funcionario_nao_pode_cadastrar_usuarios(client, admin_token):
+    assert cadastrar(client, "funcionario@farmacia.com", token=admin_token).status_code == 201
+    token_funcionario = login(client, "funcionario@farmacia.com")
 
-    resp = cadastrar(client, "outro@farmacia.com", perfil="admin", token=token_atendente)
+    resp = cadastrar(client, "outro@farmacia.com", perfil="admin", token=token_funcionario)
     assert resp.status_code == 403
 
 
-def test_admin_cadastra_atendente_e_admin(client, admin_token):
-    r1 = cadastrar(client, "a1@farmacia.com", perfil="atendente", token=admin_token)
+def test_admin_cadastra_funcionario_e_admin(client, admin_token):
+    r1 = cadastrar(client, "a1@farmacia.com", perfil="funcionario", token=admin_token)
     r2 = cadastrar(client, "a2@farmacia.com", perfil="admin", token=admin_token)
-    assert r1.get_json()["usuario"]["perfil"] == "atendente"
+    assert r1.get_json()["usuario"]["perfil"] == "funcionario"
     assert r2.get_json()["usuario"]["perfil"] == "admin"
 
 

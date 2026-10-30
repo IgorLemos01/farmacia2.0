@@ -23,13 +23,14 @@ BEGIN
         nome        NVARCHAR(120)       NOT NULL,
         email       NVARCHAR(120)       NOT NULL,
         senha_hash  NVARCHAR(255)       NOT NULL,
-        perfil      NVARCHAR(20)        NOT NULL DEFAULT 'atendente',
+        perfil      NVARCHAR(20)        NOT NULL DEFAULT 'funcionario',
+        modulos     NVARCHAR(200)       NOT NULL DEFAULT '',   -- ex.: 'clientes,receitas' (o admin acessa todos)
         ativo       BIT                 NOT NULL DEFAULT 1,
         criado_em   DATETIME            NOT NULL DEFAULT GETDATE(),
 
         CONSTRAINT pk_usuarios PRIMARY KEY (id),
         CONSTRAINT uq_usuarios_email UNIQUE (email),
-        CONSTRAINT chk_usuarios_perfil CHECK (perfil IN ('admin', 'atendente'))
+        CONSTRAINT chk_usuarios_perfil CHECK (perfil IN ('admin', 'funcionario'))
     );
 END
 GO

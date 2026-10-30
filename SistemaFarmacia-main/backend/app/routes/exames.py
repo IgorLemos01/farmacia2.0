@@ -1,6 +1,6 @@
 from flask import request
 from flask_restx import Namespace, Resource, fields
-from flask_jwt_extended import jwt_required
+from app.auth_utils import modulo_required
 
 from app.routes.campos import TextoOpcional
 from app.services.exame_service import ExameService
@@ -32,7 +32,7 @@ modelo_exame_edicao = ns.model(
 
 @ns.route("")
 class ExameListaCriacao(Resource):
-    @jwt_required()
+    @modulo_required('exames', 'dashboard')
     @ns.doc(
         description="Lista exames registrados, com filtro opcional por cliente e paginação.",
         security="Bearer",
@@ -51,7 +51,7 @@ class ExameListaCriacao(Resource):
         resultado = ExameService.listar(cliente_id=cliente_id, limite=limite, pagina=pagina)
         return resultado, 200
 
-    @jwt_required()
+    @modulo_required('exames')
     @ns.expect(modelo_exame_entrada, validate=True)
     @ns.doc(description="Registra um novo exame para o cliente.", security="Bearer")
     def post(self):
@@ -67,7 +67,7 @@ class ExameListaCriacao(Resource):
 @ns.route("/<int:id>")
 @ns.param("id", "ID do exame")
 class ExameDetalhe(Resource):
-    @jwt_required()
+    @modulo_required('exames', 'dashboard')
     @ns.doc(description="Obtém detalhes de um exame realizado.", security="Bearer")
     def get(self, id):
         """Obter exame por ID"""
@@ -76,7 +76,7 @@ class ExameDetalhe(Resource):
             ns.abort(404, "Exame não encontrado.")
         return exame.to_dict(), 200
 
-    @jwt_required()
+    @modulo_required('exames')
     @ns.expect(modelo_exame_edicao, validate=False)
     @ns.doc(description="Atualiza dados de um exame existente.", security="Bearer")
     def put(self, id):
@@ -88,7 +88,7 @@ class ExameDetalhe(Resource):
         except ValueError as e:
             ns.abort(400, str(e))
 
-    @jwt_required()
+    @modulo_required('exames')
     @ns.doc(description="Exclui um exame registrado.", security="Bearer")
     def delete(self, id):
         """Excluir exame"""

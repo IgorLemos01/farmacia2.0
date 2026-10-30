@@ -26,8 +26,30 @@ def admin_required(fn):
     @jwt_required()
     def wrapper(*args, **kwargs):
         usuario = usuario_atual()
-        if not usuario or not usuario.ativo or usuario.perfil != "admin":
+        if not usuario or not usuario.ativo or not usuario.eh_admin:
             abort(403, "Apenas administradores podem executar esta ação.")
         return fn(*args, **kwargs)
 
     return wrapper
+
+
+def modulo_required(*modulos: str):
+    """
+    Exige token válido de um usuário ativo que seja admin ou tenha pelo menos um dos módulos.
+
+    Como em `admin_required`, os módulos são lidos do banco a cada chamada: quando o
+    administrador retira um módulo, o acesso some na hora.
+    """
+
+    def decorador(fn):
+        @wraps(fn)
+        @jwt_required()
+        def wrapper(*args, **kwargs):
+            usuario = usuario_atual()
+            if not usuario or not usuario.tem_acesso(*modulos):
+                abort(403, "Você não tem acesso a este módulo.")
+            return fn(*args, **kwargs)
+
+        return wrapper
+
+    return decorador

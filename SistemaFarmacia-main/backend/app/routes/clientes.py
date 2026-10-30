@@ -1,6 +1,7 @@
 from flask import request
 from flask_restx import Namespace, Resource, fields
-from flask_jwt_extended import jwt_required
+from app.auth_utils import modulo_required
+from app.modulos import MODULOS_QUE_LEEM_CLIENTES
 
 from app.routes.campos import NumeroOpcional, TextoOpcional
 from app.services.cliente_service import ClienteService
@@ -43,7 +44,7 @@ modelo_cliente_edicao = ns.model(
 
 @ns.route("")
 class ClienteListaCriacao(Resource):
-    @jwt_required()
+    @modulo_required(*MODULOS_QUE_LEEM_CLIENTES)
     @ns.doc(
         description="Lista clientes cadastrados com suporte a busca textual (nome, CPF, telefone ou e-mail) e paginação.",
         security="Bearer",
@@ -62,7 +63,7 @@ class ClienteListaCriacao(Resource):
         resultado = ClienteService.listar(busca=termo, limite=limite, pagina=pagina)
         return resultado, 200
 
-    @jwt_required()
+    @modulo_required('clientes')
     @ns.expect(modelo_cliente_entrada, validate=True)
     @ns.doc(description="Cadastra um novo cliente na farmácia.", security="Bearer")
     def post(self):
@@ -78,7 +79,7 @@ class ClienteListaCriacao(Resource):
 @ns.route("/<int:id>")
 @ns.param("id", "ID do cliente")
 class ClienteDetalhe(Resource):
-    @jwt_required()
+    @modulo_required(*MODULOS_QUE_LEEM_CLIENTES)
     @ns.doc(description="Obtém os detalhes de um cliente pelo ID.", security="Bearer")
     def get(self, id):
         """Obter cliente por ID"""
@@ -87,7 +88,7 @@ class ClienteDetalhe(Resource):
             ns.abort(404, "Cliente não encontrado.")
         return cliente.to_dict(), 200
 
-    @jwt_required()
+    @modulo_required('clientes')
     @ns.expect(modelo_cliente_edicao, validate=False)
     @ns.doc(description="Atualiza dados de um cliente existente.", security="Bearer")
     def put(self, id):
@@ -99,7 +100,7 @@ class ClienteDetalhe(Resource):
         except ValueError as e:
             ns.abort(400, str(e))
 
-    @jwt_required()
+    @modulo_required('clientes')
     @ns.doc(description="Remove um cliente (apenas se não houver registros vinculados).", security="Bearer")
     def delete(self, id):
         """Excluir cliente"""
@@ -113,7 +114,7 @@ class ClienteDetalhe(Resource):
 @ns.route("/<int:id>/dossie")
 @ns.param("id", "ID do cliente")
 class ClienteDossie(Resource):
-    @jwt_required()
+    @modulo_required('clientes')
     @ns.doc(
         description="Retorna a visão 360° do cliente: dados cadastrais + histórico de manipulações, exames e receitas médicas.",
         security="Bearer",
