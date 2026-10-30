@@ -5,5 +5,6 @@ from app.models.cliente import Cliente
 from app.models.manipulacao import Manipulacao
 from app.models.exame import Exame
 from app.models.receita import Receita
+from app.models.catalogo_exame import CatalogoExame
 
-__all__ = ["Usuario", "Cliente", "Manipulacao", "Exame", "Receita"]
+__all__ = ["Usuario", "Cliente", "Manipulacao", "Exame", "Receita", "CatalogoExame"]

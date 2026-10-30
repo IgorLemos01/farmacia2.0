@@ -1,4 +1,5 @@
 import datetime
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 
 def agora_utc() -> datetime.datetime:
@@ -12,6 +13,31 @@ def texto_obrigatorio(valor, rotulo: str) -> str:
     if not texto:
         raise ValueError(f"O campo '{rotulo}' é obrigatório.")
     return texto
+
+
+def parse_valor(valor, rotulo: str = "Valor") -> Decimal:
+    """
+    Converte um número em Decimal com 2 casas (dinheiro).
+
+    Aceita número ou texto numérico com ponto decimal ("12.5"); a conversão de
+    "R$ 1.250,00" é feita pelo frontend.
+
+    Raises:
+        ValueError: ausente, não numérico, negativo ou grande demais.
+    """
+    if valor is None or isinstance(valor, bool) or valor == "":
+        raise ValueError(f"{rotulo} é obrigatório.")
+    try:
+        numero = Decimal(str(valor).strip())
+    except InvalidOperation:
+        raise ValueError(f"{rotulo} inválido.")
+    if not numero.is_finite():
+        raise ValueError(f"{rotulo} inválido.")
+    if numero < 0:
+        raise ValueError(f"{rotulo} não pode ser negativo.")
+    if numero > Decimal("99999999.99"):
+        raise ValueError(f"{rotulo} muito alto.")
+    return numero.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 def parse_data(valor, campo: str = "Data"):

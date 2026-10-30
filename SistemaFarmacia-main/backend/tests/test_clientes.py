@@ -1,4 +1,4 @@
-from tests.conftest import CLIENTE
+from tests.conftest import CLIENTE, criar_catalogo
 
 
 def criar_cliente(client, auth, **extra):
@@ -54,7 +54,8 @@ def test_nao_exclui_cliente_com_historico(client, auth):
 def test_dossie_reune_historico(client, auth):
     c = criar_cliente(client, auth)
     client.post("/api/manipulacoes", json={"cliente_id": c["id"], "formula": "Minoxidil 5%", "valor": 50}, headers=auth)
-    client.post("/api/exames", json={"cliente_id": c["id"], "tipo_exame": "Glicemia", "valor": 10}, headers=auth)
+    exame = criar_catalogo(client, auth, "Glicemia", 10)
+    client.post("/api/exames", json={"cliente_id": c["id"], "catalogo_id": exame["id"]}, headers=auth)
     client.post("/api/receitas", json={"cliente_id": c["id"], "medico_prescritor": "Dr. X", "medicamentos": "Dipirona"}, headers=auth)
 
     dossie = client.get(f"/api/clientes/{c['id']}/dossie", headers=auth).get_json()

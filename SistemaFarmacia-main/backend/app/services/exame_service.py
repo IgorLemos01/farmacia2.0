@@ -1,8 +1,9 @@
 import datetime
 from app.extensions import db
 from app.models.exame import Exame
+from app.models.catalogo_exame import CatalogoExame
 from app.models.cliente import Cliente
-from app.utils import parse_data, texto_obrigatorio
+from app.utils import parse_data
 
 
 class ExameService:
@@ -38,17 +39,20 @@ class ExameService:
         if not cliente:
             raise ValueError(f"Cliente com ID {cliente_id} não encontrado.")
 
-        tipo_exame = dados.get("tipo_exame", "").strip()
-        if not tipo_exame:
-            raise ValueError("O tipo do exame é obrigatório.")
+        # O exame é sempre escolhido no catálogo: nome e valor vêm de lá (não do pedido),
+        # e ficam copiados no registro, de modo que mudar o preço depois não altera o passado.
+        catalogo_id = dados.get("catalogo_id")
+        item = db.session.get(CatalogoExame, catalogo_id) if isinstance(catalogo_id, int) and not isinstance(catalogo_id, bool) else None
+        if item is None or not item.ativo:
+            raise ValueError("Escolha um exame da lista do catálogo.")
 
         data_exame = parse_data(dados.get("data"), "Data do exame") or datetime.date.today()
 
         exame = Exame(
             cliente_id=cliente_id,
-            tipo_exame=tipo_exame,
+            tipo_exame=item.nome,
             data=data_exame,
-            valor=dados.get("valor"),
+            valor=item.valor,
             forma_pagamento=dados.get("forma_pagamento"),
             observacoes=dados.get("observacoes"),
         )
@@ -63,12 +67,10 @@ class ExameService:
         if not exame:
             raise ValueError("Exame não encontrado.")
 
-        if "tipo_exame" in dados:
-            exame.tipo_exame = texto_obrigatorio(dados["tipo_exame"], "Tipo de exame")
         if "data" in dados and dados["data"]:
             exame.data = parse_data(dados["data"], "Data do exame")
-        if "valor" in dados:
-            exame.valor = dados["valor"]
+        # Nome e valor do exame não são editáveis: vêm do catálogo (só o administrador
+        # muda preços, lá). Para corrigir o exame, exclua o registro e cadastre de novo.
         if "forma_pagamento" in dados:
             exame.forma_pagamento = dados["forma_pagamento"]
         if "observacoes" in dados:

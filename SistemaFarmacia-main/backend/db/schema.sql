@@ -137,3 +137,21 @@ CREATE TABLE IF NOT EXISTS receitas (
         FOREIGN KEY (cliente_id) REFERENCES clientes (id)
         ON UPDATE CASCADE ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- -------------------------------------------------------------
+-- 6. CATALOGO_EXAMES — Nome e valor dos exames oferecidos
+--    O registro em EXAMES guarda uma cópia do nome e do valor, então
+--    mudar o preço aqui não altera exames já realizados.
+-- -------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS catalogo_exames (
+    id              INT             NOT NULL AUTO_INCREMENT,
+    nome            VARCHAR(200)    NOT NULL,
+    valor           DECIMAL(10, 2)  NOT NULL,
+    ativo           TINYINT(1)      NOT NULL DEFAULT 1,
+    criado_em       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em   DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_catalogo_exames_nome (nome)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

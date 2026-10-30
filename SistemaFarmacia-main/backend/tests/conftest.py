@@ -58,3 +58,10 @@ CLIENTE = {
     "email": "maria@email.com",
     "endereco": "Rua A, 1",
 }
+
+
+def criar_catalogo(client, auth, nome="Glicemia", valor=10.0):
+    """Cadastra um exame no catálogo (como admin) e devolve o registro."""
+    resp = client.post("/api/catalogo-exames", json={"nome": nome, "valor": valor}, headers=auth)
+    assert resp.status_code == 201, resp.get_json()
+    return resp.get_json()["exame"]

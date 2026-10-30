@@ -138,4 +138,25 @@ BEGIN
 END
 GO
 
+-- -------------------------------------------------------------
+-- 7. Tabela CATALOGO_EXAMES (nome e valor dos exames oferecidos)
+--    O registro em EXAMES guarda uma cópia do nome e do valor, então
+--    mudar o preço aqui não altera exames já realizados.
+-- -------------------------------------------------------------
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'catalogo_exames')
+BEGIN
+    CREATE TABLE catalogo_exames (
+        id              INT IDENTITY(1,1)   NOT NULL,
+        nome            NVARCHAR(200)       NOT NULL,
+        valor           DECIMAL(10, 2)      NOT NULL,
+        ativo           BIT                 NOT NULL DEFAULT 1,
+        criado_em       DATETIME            NOT NULL DEFAULT GETDATE(),
+        atualizado_em   DATETIME            NOT NULL DEFAULT GETDATE(),
+
+        CONSTRAINT pk_catalogo_exames PRIMARY KEY (id),
+        CONSTRAINT uq_catalogo_exames_nome UNIQUE (nome)
+    );
+END
+GO
+
 PRINT 'Banco de dados farmacia_couto e tabelas criadas com sucesso no SQL Server!';
