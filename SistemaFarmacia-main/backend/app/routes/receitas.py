@@ -2,7 +2,7 @@ from flask import request
 from flask_restx import Namespace, Resource, fields
 from flask_jwt_extended import jwt_required
 
-from app.routes.campos import NumeroOpcional, TextoOpcional
+from app.routes.campos import TextoOpcional
 from app.services.receita_service import ReceitaService
 
 ns = Namespace("receitas", description="Gestão de receitas médicas vinculadas aos clientes")
@@ -12,8 +12,16 @@ modelo_receita_entrada = ns.model(
     {
         "cliente_id": fields.Integer(required=True, example=1, description="ID do paciente/cliente"),
         "data_venda": TextoOpcional(required=False, example="2026-10-23", description="Data do atendimento/venda (AAAA-MM-DD)"),
-        "medico_prescritor": fields.String(required=True, example="Dr. Carlos Eduardo (CRM-SE 12345)", description="Médico prescritor"),
-        "medicamentos": fields.String(required=True, example="Amoxicilina 500mg (21 caps), Paracetamol 750mg (10 cpr)", description="Medicamentos prescritos"),
+        "medico_prescritor": TextoOpcional(required=False, example="Dr. Carlos Eduardo (CRM-SE 12345)", description="Médico prescritor (opcional)"),
+        "observacoes": TextoOpcional(required=False, example="Tomar após as refeições", description="Instruções adicionais"),
+        "itens": fields.List(
+            fields.Raw,
+            required=True,
+            description=(
+                "Medicamentos da receita (de 1 a 12). Cada item: {catalogo_id, dose?, posologia?, lote?, validade?, quantidade?}. "
+                "RMS, descrição e laboratório vêm do catálogo."
+            ),
+        ),
     },
 )
 
@@ -22,7 +30,15 @@ modelo_receita_edicao = ns.model(
     {
         "data_venda": TextoOpcional(required=False, example="2026-10-23"),
         "medico_prescritor": TextoOpcional(required=False, example="Dr. Carlos Eduardo (CRM-SE 12345)"),
-        "medicamentos": TextoOpcional(required=False, example="Amoxicilina 500mg"),
+        "observacoes": TextoOpcional(required=False, example="Tomar após as refeições"),
+        "itens": fields.List(
+            fields.Raw,
+            required=False,
+            description=(
+                "Se enviada, substitui os medicamentos. Item novo: {catalogo_id, ...}; item que já existe e "
+                "não mudou de medicamento: {id, ...} (mantém a cópia original do catálogo)."
+            ),
+        ),
     },
 )
 

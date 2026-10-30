@@ -15,6 +15,20 @@ def texto_obrigatorio(valor, rotulo: str) -> str:
     return texto
 
 
+def texto_opcional(valor, maximo: int, rotulo: str):
+    """Texto sem espaços nas pontas, ou None se vier vazio. ValueError se não for texto ou passar do limite."""
+    if valor is None:
+        return None
+    if not isinstance(valor, str):
+        raise ValueError(f"{rotulo} inválido.")
+    texto = valor.strip()
+    if not texto:
+        return None
+    if len(texto) > maximo:
+        raise ValueError(f"{rotulo} deve ter no máximo {maximo} caracteres.")
+    return texto
+
+
 def parse_valor(valor, rotulo: str = "Valor") -> Decimal:
     """
     Converte um número em Decimal com 2 casas (dinheiro).

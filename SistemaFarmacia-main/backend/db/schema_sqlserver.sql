@@ -117,7 +117,9 @@ END
 GO
 
 -- -------------------------------------------------------------
--- 6. Tabela RECEITAS
+-- 6. Tabela RECEITAS (cabeçalho da receita; os medicamentos ficam em RECEITA_ITENS)
+--    Se você já criou uma versão antiga desta tabela (com a coluna "medicamentos"),
+--    apague-a antes de rodar este script:  DROP TABLE receitas;
 -- -------------------------------------------------------------
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'receitas')
 BEGIN
@@ -125,8 +127,8 @@ BEGIN
         id                  INT IDENTITY(1,1)   NOT NULL,
         cliente_id          INT                 NOT NULL,
         data_venda          DATE                NOT NULL DEFAULT CAST(GETDATE() AS DATE),
-        medico_prescritor   NVARCHAR(200)       NOT NULL,
-        medicamentos        NVARCHAR(MAX)       NOT NULL,
+        medico_prescritor   NVARCHAR(200)       NULL,
+        observacoes         NVARCHAR(MAX)       NULL,
         criado_em           DATETIME            NOT NULL DEFAULT GETDATE(),
 
         CONSTRAINT pk_receitas PRIMARY KEY (id),
@@ -135,6 +137,35 @@ BEGIN
     );
 
     CREATE NONCLUSTERED INDEX idx_receitas_cliente ON receitas(cliente_id);
+END
+GO
+
+-- -------------------------------------------------------------
+-- 6.1 Tabela RECEITA_ITENS (medicamentos de cada receita)
+--     RMS, medicamento e laboratório são uma CÓPIA do catálogo no momento da
+--     receita: alterar o catálogo depois não muda receitas já emitidas.
+-- -------------------------------------------------------------
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'receita_itens')
+BEGIN
+    CREATE TABLE receita_itens (
+        id              INT IDENTITY(1,1)   NOT NULL,
+        receita_id      INT                 NOT NULL,
+        ordem           INT                 NOT NULL DEFAULT 0,
+        medicamento     NVARCHAR(255)       NOT NULL,
+        rms             NVARCHAR(30)        NOT NULL DEFAULT '',
+        laboratorio     NVARCHAR(150)       NULL,
+        dose            NVARCHAR(60)        NULL,
+        posologia       NVARCHAR(200)       NULL,
+        lote            NVARCHAR(60)        NULL,
+        validade        NVARCHAR(20)        NULL,
+        quantidade      INT                 NULL,
+
+        CONSTRAINT pk_receita_itens PRIMARY KEY (id),
+        CONSTRAINT fk_receita_itens_receita FOREIGN KEY (receita_id)
+            REFERENCES receitas(id) ON DELETE CASCADE
+    );
+
+    CREATE NONCLUSTERED INDEX idx_receita_itens_receita ON receita_itens(receita_id);
 END
 GO
 
@@ -156,6 +187,28 @@ BEGIN
         CONSTRAINT pk_catalogo_exames PRIMARY KEY (id),
         CONSTRAINT uq_catalogo_exames_nome UNIQUE (nome)
     );
+END
+GO
+
+-- -------------------------------------------------------------
+-- 8. Tabela CATALOGO_MEDICAMENTOS (RMS, descrição e laboratório)
+-- -------------------------------------------------------------
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'catalogo_medicamentos')
+BEGIN
+    CREATE TABLE catalogo_medicamentos (
+        id              INT IDENTITY(1,1)   NOT NULL,
+        rms             NVARCHAR(30)        NOT NULL DEFAULT '',
+        descricao       NVARCHAR(255)       NOT NULL,
+        laboratorio     NVARCHAR(150)       NULL,
+        ativo           BIT                 NOT NULL DEFAULT 1,
+        criado_em       DATETIME            NOT NULL DEFAULT GETDATE(),
+        atualizado_em   DATETIME            NOT NULL DEFAULT GETDATE(),
+
+        CONSTRAINT pk_catalogo_medicamentos PRIMARY KEY (id),
+        CONSTRAINT uq_catalogo_medicamentos_rms_descricao UNIQUE (rms, descricao)
+    );
+
+    CREATE NONCLUSTERED INDEX idx_catalogo_medicamentos_rms ON catalogo_medicamentos(rms);
 END
 GO
 

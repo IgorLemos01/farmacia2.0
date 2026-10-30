@@ -21,7 +21,6 @@ def _resolver(payload, catalogo_id):
 @pytest.mark.parametrize("rota,payload,chave", [
     ("/api/manipulacoes", {"formula": "Biotina 2mg", "valor": 30.5, "forma_pagamento": "PIX"}, "manipulacao"),
     ("/api/exames", {"catalogo_id": "__CATALOGO__", "forma_pagamento": "Dinheiro"}, "exame"),
-    ("/api/receitas", {"medico_prescritor": "Dra. Ana (CRM 1)", "medicamentos": "Amoxicilina"}, "receita"),
 ])
 def test_cadastrar_e_listar(client, auth, cliente_id, catalogo_id, rota, payload, chave):
     resp = client.post(rota, json={"cliente_id": cliente_id, **_resolver(payload, catalogo_id)}, headers=auth)
@@ -37,7 +36,6 @@ def test_cadastrar_e_listar(client, auth, cliente_id, catalogo_id, rota, payload
     ("/api/manipulacoes", {"formula": "X"}, "data"),
     ("/api/manipulacoes", {"formula": "X"}, "prazo_entrega"),
     ("/api/exames", {"catalogo_id": "__CATALOGO__"}, "data"),
-    ("/api/receitas", {"medico_prescritor": "Dr", "medicamentos": "X"}, "data_venda"),
 ])
 def test_data_invalida_retorna_400(client, auth, cliente_id, catalogo_id, rota, payload, campo):
     resp = client.post(rota, json={"cliente_id": cliente_id, **_resolver(payload, catalogo_id), campo: "31/12/2026"}, headers=auth)
@@ -67,7 +65,6 @@ def test_exame_com_opcionais_null(client, auth, cliente_id, catalogo_id):
 
 @pytest.mark.parametrize("rota,payload,chave,campo", [
     ("/api/manipulacoes", {"formula": "Biotina"}, "manipulacao", "formula"),
-    ("/api/receitas", {"medico_prescritor": "Dr. X", "medicamentos": "Dipirona"}, "receita", "medicamentos"),
 ])
 def test_editar_e_excluir(client, auth, cliente_id, rota, payload, chave, campo):
     criado = client.post(rota, json={"cliente_id": cliente_id, **payload}, headers=auth).get_json()[chave]

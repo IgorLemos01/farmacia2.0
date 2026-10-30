@@ -83,6 +83,7 @@ def create_app(config_extra: dict | None = None) -> Flask:
     from app.routes.receitas import ns as receitas_ns
     from app.routes.usuarios import ns as usuarios_ns
     from app.routes.catalogo_exames import ns as catalogo_ns
+    from app.routes.catalogo_medicamentos import ns as catalogo_med_ns
 
     api.add_namespace(auth_ns)
     api.add_namespace(clientes_ns)
@@ -91,6 +92,7 @@ def create_app(config_extra: dict | None = None) -> Flask:
     api.add_namespace(receitas_ns)
     api.add_namespace(usuarios_ns)
     api.add_namespace(catalogo_ns)
+    api.add_namespace(catalogo_med_ns)
 
     # --- Cria as tabelas no banco se ainda não existirem ---
     with app.app_context():

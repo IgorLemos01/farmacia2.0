@@ -120,15 +120,17 @@ CREATE TABLE IF NOT EXISTS exames (
 
 
 -- -------------------------------------------------------------
--- 5. RECEITAS — Receitas médicas vinculadas a clientes
+-- 5. RECEITAS — Cabeçalho da receita (os medicamentos ficam em RECEITA_ITENS)
+--    Se você já criou uma versão antiga desta tabela (com a coluna "medicamentos"),
+--    apague-a antes de rodar este script:  DROP TABLE receitas;
 -- -------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS receitas (
     id                  INT          NOT NULL AUTO_INCREMENT,
     cliente_id          INT          NOT NULL,
 
     data_venda          DATE         NOT NULL DEFAULT (CURRENT_DATE),
-    medico_prescritor   VARCHAR(200) NOT NULL,
-    medicamentos        TEXT         NOT NULL COMMENT 'Lista/descrição dos medicamentos prescritos',
+    medico_prescritor   VARCHAR(200) NULL,
+    observacoes         TEXT         NULL,
     criado_em           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (id),
@@ -136,6 +138,32 @@ CREATE TABLE IF NOT EXISTS receitas (
     CONSTRAINT fk_receitas_cliente
         FOREIGN KEY (cliente_id) REFERENCES clientes (id)
         ON UPDATE CASCADE ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- -------------------------------------------------------------
+-- 5.1 RECEITA_ITENS — Medicamentos de cada receita
+--     RMS, medicamento e laboratório são uma CÓPIA do catálogo no momento da
+--     receita: alterar o catálogo depois não muda receitas já emitidas.
+-- -------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS receita_itens (
+    id              INT          NOT NULL AUTO_INCREMENT,
+    receita_id      INT          NOT NULL,
+    ordem           INT          NOT NULL DEFAULT 0,
+    medicamento     VARCHAR(255) NOT NULL,
+    rms             VARCHAR(30)  NOT NULL DEFAULT '',
+    laboratorio     VARCHAR(150) NULL,
+    dose            VARCHAR(60)  NULL,
+    posologia       VARCHAR(200) NULL,
+    lote            VARCHAR(60)  NULL,
+    validade        VARCHAR(20)  NULL,
+    quantidade      INT          NULL,
+
+    PRIMARY KEY (id),
+    INDEX idx_receita_itens_receita (receita_id),
+    CONSTRAINT fk_receita_itens_receita
+        FOREIGN KEY (receita_id) REFERENCES receitas (id)
+        ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -154,4 +182,22 @@ CREATE TABLE IF NOT EXISTS catalogo_exames (
 
     PRIMARY KEY (id),
     UNIQUE KEY uq_catalogo_exames_nome (nome)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- -------------------------------------------------------------
+-- 7. CATALOGO_MEDICAMENTOS — RMS, descrição e laboratório
+-- -------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS catalogo_medicamentos (
+    id              INT             NOT NULL AUTO_INCREMENT,
+    rms             VARCHAR(30)     NOT NULL DEFAULT '',
+    descricao       VARCHAR(255)    NOT NULL,
+    laboratorio     VARCHAR(150)    NULL,
+    ativo           TINYINT(1)      NOT NULL DEFAULT 1,
+    criado_em       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em   DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_catalogo_medicamentos_rms_descricao (rms, descricao),
+    INDEX idx_catalogo_medicamentos_rms (rms)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

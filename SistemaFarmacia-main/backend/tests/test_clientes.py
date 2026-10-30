@@ -1,4 +1,4 @@
-from tests.conftest import CLIENTE, criar_catalogo
+from tests.conftest import CLIENTE, criar_catalogo, criar_medicamento
 
 
 def criar_cliente(client, auth, **extra):
@@ -47,7 +47,8 @@ def test_cliente_inexistente_404(client, auth):
 
 def test_nao_exclui_cliente_com_historico(client, auth):
     c = criar_cliente(client, auth)
-    client.post("/api/receitas", json={"cliente_id": c["id"], "medico_prescritor": "Dr. X", "medicamentos": "Dipirona"}, headers=auth)
+    med = criar_medicamento(client, auth)
+    client.post("/api/receitas", json={"cliente_id": c["id"], "itens": [{"catalogo_id": med["id"]}]}, headers=auth)
     assert client.delete(f"/api/clientes/{c['id']}", headers=auth).status_code == 400
 
 
@@ -56,7 +57,8 @@ def test_dossie_reune_historico(client, auth):
     client.post("/api/manipulacoes", json={"cliente_id": c["id"], "formula": "Minoxidil 5%", "valor": 50}, headers=auth)
     exame = criar_catalogo(client, auth, "Glicemia", 10)
     client.post("/api/exames", json={"cliente_id": c["id"], "catalogo_id": exame["id"]}, headers=auth)
-    client.post("/api/receitas", json={"cliente_id": c["id"], "medico_prescritor": "Dr. X", "medicamentos": "Dipirona"}, headers=auth)
+    med = criar_medicamento(client, auth)
+    client.post("/api/receitas", json={"cliente_id": c["id"], "itens": [{"catalogo_id": med["id"]}]}, headers=auth)
 
     dossie = client.get(f"/api/clientes/{c['id']}/dossie", headers=auth).get_json()
     h = dossie["historico"]

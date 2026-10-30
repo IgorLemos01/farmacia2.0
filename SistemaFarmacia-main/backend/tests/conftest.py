@@ -65,3 +65,14 @@ def criar_catalogo(client, auth, nome="Glicemia", valor=10.0):
     resp = client.post("/api/catalogo-exames", json={"nome": nome, "valor": valor}, headers=auth)
     assert resp.status_code == 201, resp.get_json()
     return resp.get_json()["exame"]
+
+
+def criar_medicamento(client, auth, descricao="ALPRAZOLAM 0,25 MG 30 CPRS", rms="1023506630034", laboratorio="EMS INDUSTRIA FARMACEUTICA LTDA"):
+    """Cadastra um medicamento no catálogo (como admin) e devolve o registro."""
+    resp = client.post(
+        "/api/catalogo-medicamentos",
+        json={"descricao": descricao, "rms": rms, "laboratorio": laboratorio},
+        headers=auth,
+    )
+    assert resp.status_code == 201, resp.get_json()
+    return resp.get_json()["medicamento"]
