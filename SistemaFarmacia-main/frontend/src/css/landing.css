@@ -1,22 +1,13 @@
-/* ═══════════════════════════════════════════
-   RESET & TOKENS
-   ═══════════════════════════════════════════ */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root {
-  --red: #C8102E;
-  --red-d: #9B0D22;
-  --blue: #003087;
-  --blue-m: #0046AD;
-  --off: #F7F8FA;
-  --gl: #EEF0F4;
-  --gr: #8A92A0;
-  --gd: #3D4557;
-  --tx: #1A1F2E;
-  --ss: 0 2px 8px rgba(0,48,135,.07);
-  --sm: 0 8px 28px rgba(0,48,135,.11);
-  --sl: 0 20px 56px rgba(0,48,135,.15);
-  --r: 12px;
-  --rl: 20px;
+:root{
+  --red:#C8102E;--red-d:#9B0D22;
+  --blue:#003087;--blue-m:#0046AD;
+  --off:#F7F8FA;--gl:#EEF0F4;
+  --gr:#8A92A0;--gd:#3D4557;--tx:#1A1F2E;
+  --ss:0 2px 8px rgba(0,48,135,.07);
+  --sm:0 8px 28px rgba(0,48,135,.11);
+  --sl:0 20px 56px rgba(0,48,135,.15);
+  --r:12px;--rl:20px;
 }
 html{scroll-behavior:smooth}
 body{font-family:'DM Sans',sans-serif;color:var(--tx);background:#fff;overflow-x:hidden}
@@ -246,6 +237,7 @@ footer{
   position:relative;
   z-index:10;
 }
+
 .foot-in{
   max-width:1160px;
   margin:0 auto;
@@ -256,6 +248,7 @@ footer{
   padding-bottom:2rem;
   text-align:center;
 }
+
 @media(min-width:860px){
   .foot-in{
     flex-direction:row;
@@ -264,8 +257,10 @@ footer{
     text-align:left;
   }
 }
+
 .flogo{display:flex;align-items:center;gap:10px}
 .flogo-img{height:40px;width:auto;object-fit:contain;opacity:.9;filter:drop-shadow(0 1px 4px rgba(0,0,0,.3))}
+
 .flinks{
   display:flex;
   flex-wrap:wrap;
@@ -273,9 +268,11 @@ footer{
   gap:.6rem 1.2rem;
   list-style:none;
 }
+
 @media(min-width:860px){
   .flinks{flex-wrap:nowrap;gap:1.5rem;justify-content:flex-start}
 }
+
 .flinks a{
   color:rgba(255,255,255,.52);
   text-decoration:none;
@@ -283,6 +280,7 @@ footer{
   transition:color .2s;
 }
 .flinks a:hover{color:#fff}
+
 .footer-sistema{
   display:inline-flex;
   align-items:center;
@@ -298,14 +296,15 @@ footer{
   transition:all .2s;
   white-space:nowrap;
 }
-.footer-sistema:hover{background:rgba(255,255,255,.16);color:#fff}
+.-sistema:hover{background:rgba(255,255,255,.16);color:#fff}
+
 .fcp{
   font-size:.76rem;
   color:rgba(255,255,255,.32);
   text-align:center;
 }
-@media(min-width:860px){.fcp{text-align:right}}
 
+@media(min-width:860px){.fcp{text-align:right}}
 /* ─── FOOTER LEGAL ─── */
 .foot-legal{
   max-width:1160px;margin:0 auto;

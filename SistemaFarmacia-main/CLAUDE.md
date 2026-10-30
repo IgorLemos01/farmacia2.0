@@ -4,15 +4,18 @@
 
 ```
 SistemaFarmacia/
-├── frontend/          ← Landing Page institucional (Vite + Vanilla JS)
+├── frontend/          ← Landing Page (index.html) + Sistema (sistema.html) — Vite + Vanilla JS
 └── backend/           ← API REST (Python + Flask + MySQL)
 ```
 
 ---
 
-## Frontend — Landing Page
+## Frontend — Landing Page + Sistema
 
-**Tecnologia**: Vite + Vanilla JS
+**Tecnologia**: Vite + Vanilla JS (build multi-página)
+
+- `index.html` → landing page institucional (`src/css/landing.css`, `src/js/landing.js`)
+- `sistema.html` → sistema de gestão, aberto pelo botão "Área Interna" da landing
 
 ```bash
 # Instalar dependências

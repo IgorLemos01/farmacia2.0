@@ -7,7 +7,8 @@ export default defineConfig({
     outDir: 'dist',
     rollupOptions: {
       input: {
-        main: resolve(__dirname, 'index.html')
+        main: resolve(__dirname, 'index.html'),       // Landing page
+        sistema: resolve(__dirname, 'sistema.html'),  // Área interna (sistema de gestão)
       }
     }
   },

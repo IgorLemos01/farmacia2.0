@@ -1,223 +1,302 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Farmácia Couto — Gestão Inteligente</title>
-  
-  <!-- Tipografia Moderna (Plus Jakarta Sans) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<title>Farmácia Couto — Cuidando da sua saúde e bem-estar</title>
+<meta name="description" content="Farmácia Couto: atendimento humanizado e produtos de qualidade. Fale pelo WhatsApp."/>
 
-  <!-- Estilos Modulares do Design System -->
-  <link rel="stylesheet" href="/src/css/variables.css" />
-  <link rel="stylesheet" href="/src/css/layout.css" />
-  <link rel="stylesheet" href="/src/css/components.css" />
-  <link rel="stylesheet" href="/src/css/dashboard.css" />
+<!-- Open Graph / SEO (Para o link ficar bonito no WhatsApp e Redes Sociais) -->
+<meta property="og:title" content="Farmácia Couto — Cuidando da sua saúde">
+<meta property="og:description" content="Atendimento humanizado e entrega em domicílio. Fale conosco agora!">
+<meta property="og:type" content="website">
+<!-- Substitua o link abaixo por uma imagem real da fachada da farmácia -->
+<meta property="og:image" content="https://via.placeholder.com/1200x630.png?text=Farmacia+Couto"> 
+
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/src/css/landing.css"/>
 </head>
 <body>
-  <div class="app-container">
-    
-    <!-- SIDEBAR LATERAL ESQUERDA (ESTILO DONEZO) -->
-    <aside class="sidebar">
-      <!-- Marca / Logo -->
-      <a href="#" class="sidebar-brand" data-route="dashboard">
-        <div class="brand-icon">
-          <!-- Ícone Geométrico estilo Donezo -->
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="9"/>
-            <path d="M12 7v10M7 12h10"/>
-          </svg>
-        </div>
-        <span class="brand-title">Farmácia Couto</span>
-      </a>
 
-      <!-- Menu Principal -->
-      <div class="sidebar-section-title">MENU</div>
-      <ul class="nav-menu">
-        <li class="nav-item active" data-route="dashboard">
-          <a class="nav-link">
-            <div class="nav-link-content">
-              <!-- Ícone Grid / Dashboard -->
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="3" width="7" height="7" rx="1"/>
-                <rect x="14" y="3" width="7" height="7" rx="1"/>
-                <rect x="14" y="14" width="7" height="7" rx="1"/>
-                <rect x="3" y="14" width="7" height="7" rx="1"/>
-              </svg>
-              <span>Dashboard</span>
-            </div>
-          </a>
-        </li>
+<!-- NAVBAR -->
+<nav>
+  <a href="#hero" class="nlogo" aria-label="Voltar para o topo">
+    <img src="/src/assets/logo.png" alt="Farmácia Couto" class="nlogo-img" aria-hidden="false"/>
+  </a>
+  <ul class="nlinks">
+    <li><a href="#sobre">Sobre</a></li>
+    <li><a href="#endereco">Localização</a></li>
+    <li><a href="#diferenciais">Diferenciais</a></li>
+    <li><a href="#whatsapp">Contato</a></li>
+  </ul>
+  <div style="display:flex;align-items:center;gap:.5rem">
+    <a href="/sistema.html" class="nsistema" aria-label="Acessar Área Interna">
+      <span aria-hidden="true">🔐</span> Área Interna
+    </a>
+    <a href="https://api.whatsapp.com/send/?phone=5575991154571&text=Ol%C3%A1%2C%20gostaria%20de%20fazer%20um%20or%C3%A7amento&type=phone_number&app_absent=0&utm_source=ig"
+       target="_blank" rel="noopener" class="nwa" aria-label="Falar com a Farmácia pelo WhatsApp">
+      <svg viewBox="0 0 24 24" fill="white" width="15" height="15" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+      WhatsApp
+    </a>
+  </div>
+</nav>
 
-        <li class="nav-item" data-route="clientes">
-          <a class="nav-link">
-            <div class="nav-link-content">
-              <!-- Ícone Clientes / Pessoas -->
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                <circle cx="9" cy="7" r="4"/>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-              </svg>
-              <span>Clientes</span>
-            </div>
-            <span class="nav-badge">Novo</span>
-          </a>
-        </li>
-
-        <li class="nav-item" data-route="manipulacoes">
-          <a class="nav-link">
-            <div class="nav-link-content">
-              <!-- Ícone Frasco / Manipulação -->
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M10 2v4M14 2v4M8 6h8M6 10h12l-2 11H8L6 10z"/>
-              </svg>
-              <span>Manipulação</span>
-            </div>
-          </a>
-        </li>
-
-        <li class="nav-item" data-route="exames">
-          <a class="nav-link">
-            <div class="nav-link-content">
-              <!-- Ícone Atividade / Exames -->
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-              </svg>
-              <span>Exames</span>
-            </div>
-          </a>
-        </li>
-
-        <li class="nav-item" data-route="receitas">
-          <a class="nav-link">
-            <div class="nav-link-content">
-              <!-- Ícone Documento / Receitas -->
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-                <line x1="16" y1="13" x2="8" y2="13"/>
-                <line x1="16" y1="17" x2="8" y2="17"/>
-                <polyline points="10 9 9 9 8 9"/>
-              </svg>
-              <span>Receitas</span>
-            </div>
-          </a>
-        </li>
-      </ul>
-
-      <!-- Seção Geral -->
-      <div class="sidebar-section-title">GERAL</div>
-      <ul class="nav-menu">
-        <li class="nav-item">
-          <a class="nav-link" onclick="alert('Configurações do sistema')">
-            <div class="nav-link-content">
-              <!-- Ícone Engrenagem -->
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-              </svg>
-              <span>Configurações</span>
-            </div>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" onclick="alert('Suporte e Documentação da API: http://localhost:5000/api/docs')">
-            <div class="nav-link-content">
-              <!-- Ícone Ajuda -->
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-                <line x1="12" y1="17" x2="12.01" y2="17"/>
-              </svg>
-              <span>Ajuda & Swagger</span>
-            </div>
-          </a>
-        </li>
-      </ul>
-
-      <!-- Card Promocional / Atalhos da Sidebar (Donezo Style) -->
-      <div class="sidebar-footer-card">
-        <span class="sfc-tag">⚡ PharmaCore 2.0</span>
-        <div class="sfc-title">Gestão e Prontuários</div>
-        <div class="sfc-desc">Acesso rápido a todos os históricos de saúde.</div>
-        <button class="sfc-btn" onclick="window.appRouter.navigate('clientes')">Ver Pacientes</button>
+<!-- ═══════════════════ 1. HERO ═══════════════════ -->
+<section id="hero">
+  <div class="hbg">
+    <canvas id="heroCanvas"></canvas>
+    <div class="hov"></div>
+    <div class="hsh h1"></div><div class="hsh h2"></div><div class="hsh h3"></div>
+    <div class="hgr"></div>
+  </div>
+  <div class="hcon">
+    <div>
+      <div class="hbadge"><div class="hpul"></div> Cuidando da sua saúde e bem-estar</div>
+      <h1 class="htit">Saúde de <em>qualidade</em><br>ao seu alcance</h1>
+      <p class="hdesc">Na Farmácia Couto você encontra atendimento humanizado e produtos selecionados para cuidar de você e da sua família.</p>
+      <div class="hact">
+        <a href="https://api.whatsapp.com/send/?phone=5575991154571&text=Ol%C3%A1%2C%20gostaria%20de%20fazer%20um%20or%C3%A7amento&type=phone_number&app_absent=0&utm_source=ig"
+           target="_blank" rel="noopener" class="hbtn-wa" aria-label="Falar no WhatsApp para orçamentos">
+          <svg viewBox="0 0 24 24" fill="white" width="18" height="18" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+          Falar no WhatsApp
+        </a>
+        <a href="#sobre" class="hbtn-o">Conheça a farmácia</a>
       </div>
-    </aside>
-
-    <!-- ÁREA PRINCIPAL -->
-    <main class="main-wrapper">
-      
-      <!-- TOPBAR SUPERIOR FLUTUANTE -->
-      <header class="topbar">
-        <!-- Campo de Busca Estilo Pill -->
-        <div class="search-pill-container">
-          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"/>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-          </svg>
-          <input type="text" class="search-pill" id="globalSearchInput" placeholder="Buscar por paciente, CPF, receita ou fórmula..." />
-          <span class="search-kbd">⌘F</span>
+      <div class="hstats">
+        <div class="hst"><strong style="font-size:1.15rem;font-weight:700;display:block;line-height:1.2">Com alta<br><span style="font-size:1rem">experiência</span></strong><span>no que você precisa</span></div>
+        <div class="hst"><strong>30k+</strong><span>Clientes atendidos</span></div>
+        <div class="hst"><strong>100%</strong><span>Produtos certificados</span></div>
+      </div>
+    </div>
+    <div class="hvis">
+      <div style="position:relative;width:100%;max-width:340px">
+        <div class="hcard">
+          <div class="hcico" aria-hidden="true">💊</div>
+          <div class="hctit">Atendimento Especializado</div>
+          <div class="hctxt">Nossa equipe está pronta para orientar sobre medicamentos e tratamentos com todo cuidado e atenção que você merece.</div>
+          <div class="hcpil">✓ Disponível todos os dias</div>
         </div>
+        <div class="chip c2"><div class="cdot"></div> Entrega em domicílio</div>
+      </div>
+    </div>
+  </div>
+</section>
 
-        <!-- Ações do Topbar & Perfil -->
-        <div class="topbar-actions">
-          <!-- Botão Mensagens -->
-          <button class="icon-btn-pill" title="Mensagens e Alertas">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-              <polyline points="22,6 12,13 2,6"/>
-            </svg>
-          </button>
-
-          <!-- Botão Notificações com Badge -->
-          <button class="icon-btn-pill" title="Notificações">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-            </svg>
-            <span class="badge-dot"></span>
-          </button>
-
-          <!-- Perfil do Usuário com Avatar -->
-          <div class="user-profile-badge">
-            <div class="user-avatar">👨🏻‍⚕️</div>
-            <div class="user-info">
-              <span class="user-name">Igor Lemos</span>
-              <span class="user-role">Farmacêutico Responsável</span>
-            </div>
+<!-- ═══════════════════ 2. SOBRE ═══════════════════ -->
+<section id="sobre">
+  <div class="si">
+    <div class="sg">
+      <div class="svis rv">
+        <div class="sbox" style="background:#fff;display:flex;align-items:center;justify-content:center;padding:2rem;">
+          <img src="/src/assets/logo.png" loading="lazy" decoding="async" alt="Farmácia Couto" style="max-width:85%;max-height:220px;object-fit:contain;background:var(--off);"/>
+        </div>
+        <div class="sbadge"><strong>Com alta</strong><span>experiência no que você precisa</span></div>
+      </div>
+      <div class="rv">
+        <div class="stag">Nossa História</div>
+        <h2 class="stit">Sobre a <span>Farmácia Couto</span></h2>
+        <p class="sdesc">Fundada com o propósito de oferecer saúde e bem-estar com acessibilidade e cuidado, a Farmácia Couto é referência em atendimento humanizado na região. Nossa equipe é formada por profissionais comprometidos com a qualidade de vida de cada cliente.</p>
+        <div class="sfeats">
+          <div class="feat">
+            <span class="fi" aria-hidden="true">🤝</span>
+            <div><div class="ft">Atendimento Humanizado</div><div class="fd">Cada cliente é tratado com atenção individual e respeito. Saúde é assunto sério e merece cuidado de verdade.</div></div>
+          </div>
+          <div class="feat">
+            <span class="fi" aria-hidden="true">🚚</span>
+            <div><div class="ft">Entrega em Domicílio</div><div class="fd">Receba seus medicamentos e produtos com comodidade e rapidez, sem precisar sair de casa.</div></div>
+          </div>
+          <div class="feat">
+            <span class="fi" aria-hidden="true">💊</span>
+            <div><div class="ft">Variedade de Produtos</div><div class="fd">Amplo estoque de medicamentos e produtos de saúde com qualidade certificada para toda a família.</div></div>
+          </div>
+          <div class="feat">
+            <span class="fi" aria-hidden="true">📱</span>
+            <div><div class="ft">Pedidos pelo WhatsApp</div><div class="fd">Faça seus pedidos de forma prática e rápida pelo WhatsApp e receba com comodidade.</div></div>
           </div>
         </div>
-      </header>
+      </div>
+    </div>
+  </div>
+</section>
 
-      <!-- CABEÇALHO DINÂMICO DA PÁGINA -->
-      <section class="page-header" style="background: transparent; padding: 0;">
-        <div class="page-title-group">
-          <h1 id="pageTitleText">Dashboard</h1>
-          <p id="pageSubtitleText">Acompanhe métricas, atendimentos e desempenho em tempo real.</p>
+<!-- ═══════════════════ 3. ENDEREÇO ═══════════════════ -->
+<section id="endereco">
+  <div class="si">
+    <div class="end-grid">
+      <div class="rv">
+        <div class="stag">Onde Estamos</div>
+        <h2 class="stit">Nossa <span>Localização</span></h2>
+        <p class="sdesc">Estamos em local de fácil acesso para melhor atendê-lo. Venha nos visitar ou fale com a gente antes de vir.</p>
+        <div class="end-items">
+          <div class="end-item">
+            <div class="end-ico ei-r" aria-hidden="true">📍</div>
+            <div><strong>Endereço</strong><span>Consulte a localização no mapa ao lado</span></div>
+          </div>
+          <div class="end-item">
+            <div class="end-ico ei-b" aria-hidden="true">📞</div>
+            <div><strong>WhatsApp / Telefone</strong><span>(75) 99115-4571</span></div>
+          </div>
+          <div class="end-item">
+            <div class="end-ico ei-g" aria-hidden="true">🕐</div>
+            <div><strong>Horário de Funcionamento</strong><span>Seg–Sex: 07h–20h &nbsp;|&nbsp; Sáb: 07h–20h &nbsp;|&nbsp; Dom: 07h–20h</span></div>
+          </div>
+          <div class="end-item">
+            <div class="end-ico ei-b" aria-hidden="true">📸</div>
+            <div><strong>Instagram</strong><span>@farmaciacouto</span></div>
+          </div>
         </div>
-
-        <div class="page-actions">
-          <button class="btn btn-secondary" onclick="alert('Exportando relatório consolidado...')">
-            Exportar Relatório
-          </button>
-          <button class="btn btn-primary" onclick="window.appRouter.navigate('clientes')">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Novo Atendimento
-          </button>
+        <a href="https://maps.app.goo.gl/5y5SMtdpsgnSRrUaA" target="_blank" rel="noopener" class="end-map-btn">
+          <span aria-hidden="true">🗺️</span> Abrir no Google Maps
+        </a>
+      </div>
+      <div class="rv">
+        <div class="map-wrap">
+          <iframe 
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3915.691823344876!2d-38.8389883!3d-11.061716!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x7123b4f556335f1%3A0xf265c60374cd7a22!2sFarm%C3%A1cia%20Couto!5e0!3m2!1spt-BR!2sbr!4v1775090105819!5m2!1spt-BR!2sbr" 
+            style="border:0;" 
+            allowfullscreen="" 
+            loading="lazy" 
+            referrerpolicy="no-referrer-when-downgrade"
+            title="Localização Farmácia Couto">
+          </iframe>
+          
+          <a href="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3915.691823344876!2d-38.8389883!3d-11.061716!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x7123b4f556335f1%3A0xf265c60374cd7a22!2sFarm%C3%A1cia%20Couto!5e0!3m2!1spt-BR!2sbr!4v1775090105819!5m2!1spt-BR!2sbr" target="_blank" rel="noopener" class="map-link">
+            <span aria-hidden="true">🗺️</span> Ver rota completa
+          </a>
         </div>
-      </section>
+          <a href="https://maps.app.goo.gl/oDvsXNmiWBeBrKQf6" target="_blank" rel="noopener" class="map-link">
+            <span aria-hidden="true">🗺️</span> Ver rota completa
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
-      <!-- CONTAINER DINÂMICO ONDE AS TELAS SÃO RENDERIZADAS -->
-      <div id="mainContentArea"></div>
+<!-- ═══════════════════ 4. DIFERENCIAIS ═══════════════════ -->
+<section id="diferenciais">
+  <div class="si din">
+    <div class="stag rv">Por que nos escolher</div>
+    <h2 class="stit rv">Nossos <span>Diferenciais</span></h2>
+    <p class="sdesc rv">Veja o que torna a Farmácia Couto a melhor escolha para cuidar da sua saúde e da sua família.</p>
+    <div class="dg">
+      <div class="dc rv"><span class="di" aria-hidden="true">🏆</span><strong>2 Anos de Experiência</strong><p>Experiência e confiança construída com cada cliente atendido na região.</p></div>
+      <div class="dc rv"><span class="di" aria-hidden="true">🚚</span><strong>Entrega em Domicílio</strong><p>Receba seus medicamentos e produtos com comodidade, sem precisar sair de casa.</p></div>
+      <div class="dc rv"><span class="di" aria-hidden="true">💬</span><strong>Atendimento via WhatsApp</strong><p>Tire dúvidas, faça pedidos e receba orientações direto pelo seu celular, a qualquer hora.</p></div>
+      <div class="dc rv"><span class="di" aria-hidden="true">💰</span><strong>Preço Justo</strong><p>Trabalhamos para oferecer o melhor custo-benefício, sempre com total transparência.</p></div>
+      <div class="dc rv"><span class="di" aria-hidden="true">👨‍⚕️</span><strong>Equipe Especializada</strong><p>Farmacêuticos e atendentes treinados para te orientar com responsabilidade e cuidado.</p></div>
+      <div class="dc rv"><span class="di" aria-hidden="true">⭐</span><strong>Confiança e Qualidade</strong><p>Produtos certificados e selecionados com rigor para garantir sua segurança e bem-estar.</p></div>
+    </div>
+  </div>
+</section>
 
-    </main>
+<!-- ═══════════════════ 5. WHATSAPP ═══════════════════ -->
+<section id="whatsapp">
+  <div class="wa-inner">
+    <div class="wa-card rv">
+      <div class="wa-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="white" width="46" height="46"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+      </div>
+      <h2 class="wa-title">Fale com a gente agora</h2>
+      <p class="wa-desc">Nossa equipe está pronta para tirar dúvidas, receber pedidos e te orientar sobre medicamentos e tratamentos. Resposta rápida e atendimento humanizado.</p>
+      <a href="https://api.whatsapp.com/send/?phone=5575991154571&text=Ol%C3%A1%2C%20gostaria%20de%20fazer%20um%20or%C3%A7amento&type=phone_number&app_absent=0&utm_source=ig"
+         target="_blank" rel="noopener" class="wa-btn" aria-label="Abrir conversa no WhatsApp">
+        <svg viewBox="0 0 24 24" fill="white" width="22" height="22" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+        Conversar no WhatsApp
+      </a>
+      <p class="wa-num">Número: <strong>(75) 99115-4571</strong></p>
+      <div class="wa-insta">
+        <span>Siga também:</span>
+        <a href="https://instagram.com/farmaciacouto" target="_blank" rel="noopener">@farmaciacouto no Instagram</a>
+      </div>
+    </div>
+  </div>
+</section>
 
+<!-- FOOTER -->
+<footer>
+  <div class="foot-in">
+    <div class="flogo">
+      <img src="/src/assets/logo.png" loading="lazy" decoding="async" alt="Farmácia Couto" style="max-width:85%;max-height:220px;object-fit:contain;background:var(--off);"
+      alt="Farmácia Couto" class="flogo-img"/>
+    </div>
+
+    <ul class="flinks">
+      <li><a href="#sobre">Sobre</a></li>
+      <li><a href="#endereco">Localização</a></li>
+      <li><a href="#diferenciais">Diferenciais</a></li>
+      <li><a href="#whatsapp">WhatsApp</a></li>
+    </ul>
+
+    <a href="/sistema.html" class="footer-sistema">
+      <span aria-hidden="true">🔐</span> Área Interna
+    </a>
+
+    <p class="fcp">© 2026 Farmácia Couto. Todos os direitos reservados.</p>
   </div>
 
-  <!-- Script Principal Modular -->
-  <script type="module" src="/src/js/app.js"></script>
+  <div class="foot-legal">
+    <p class="foot-legal-text">
+      <strong>Farmácia Couto</strong>
+      &nbsp;|&nbsp; CNPJ: 53.835.152/0001-70
+      &nbsp;|&nbsp; I.E.: 215.334.598
+      &nbsp;|&nbsp; Dt. Jorrinho s/n, Tucano — Bahia (BA)
+      &nbsp;|&nbsp; CEP: 48790-000
+      &nbsp;|&nbsp; Para dúvidas, elogios e reclamações acesse nossa
+      <a href="https://api.whatsapp.com/send/?phone=5575991154571&text=Olá" target="_blank" rel="noopener">Central de Atendimento no WhatsApp</a>
+      <br/>
+      <strong>Farmacêutico responsável:</strong> Leandro Couto dos Santos
+      &nbsp;|&nbsp; CRF: 9992
+      &nbsp;|&nbsp; AFE: 5.08735-2
+      <br/>
+      As informações contidas neste site não devem ser usadas para automedicação. Maiores esclarecimentos, consultar o site:
+      <a href="https://www.anvisa.gov.br" target="_blank" rel="noopener">www.anvisa.gov.br</a>.
+      A privacidade e a segurança dos clientes são compromissos da Farmácia Couto.
+    </p>
+    <div class="foot-legal-bottom">
+      <a href="#">Política de Privacidade</a>
+      <span>·</span>
+      <span>© 2026 Farmácia Couto. Todos os direitos reservados.</span>
+    </div>
+  </div>
+</footer>
+
+  <!-- RODAPÉ LEGAL / REGULATÓRIO -->
+  <div class="foot-legal">
+    <p class="foot-legal-text">
+      <strong>Farmácia Couto</strong>
+      &nbsp;|&nbsp; CNPJ: 53.835.152/0001-70
+      &nbsp;|&nbsp; I.E.: 215.334.598
+      &nbsp;|&nbsp; Dt. Jorrinho s/n, Tucano — Bahia (BA)
+      &nbsp;|&nbsp; CEP: 48790-000
+      &nbsp;|&nbsp; Para dúvidas, elogios e reclamações acesse nossa
+      <a href="https://api.whatsapp.com/send/?phone=5575991154571&text=Ol%C3%A1%2C%20gostaria%20de%20entrar%20em%20contato&type=phone_number&app_absent=0" target="_blank" rel="noopener">Central de Atendimento no WhatsApp</a>
+      <br/>
+      <strong>Farmacêutico responsável:</strong> Leandro Couto dos Santos
+      &nbsp;|&nbsp; CRF: 9992
+      &nbsp;|&nbsp; AFE: 5.08735-2
+      <br/>
+      As informações contidas neste site não devem ser usadas para automedicação. Maiores esclarecimentos, consultar o site:
+      <a href="https://www.anvisa.gov.br" target="_blank" rel="noopener">www.anvisa.gov.br</a>.
+      A privacidade e a segurança dos clientes são compromissos da Farmácia Couto.
+    </p>
+    <div class="foot-legal-bottom">
+      <a href="#">Política de Privacidade</a>
+      <span>·</span>
+      <span>© 2026 Farmácia Couto. Todos os direitos reservados.</span>
+    </div>
+  </div>
+</footer>
+
+<!-- FLOATING WHATSAPP -->
+<a href="https://api.whatsapp.com/send/?phone=5575991154571&text=Ol%C3%A1%2C%20gostaria%20de%20fazer%20um%20or%C3%A7amento&type=phone_number&app_absent=0&utm_source=ig"
+   target="_blank" rel="noopener" class="wafloat" aria-label="Atendimento rápido pelo WhatsApp">
+  <span class="wftip">Falar no WhatsApp</span>
+  <svg viewBox="0 0 24 24" fill="white" width="28" height="28" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+</a>
+
+<script type="module" src="/src/js/landing.js"></script>
 </body>
 </html>

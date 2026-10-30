@@ -1,37 +1,38 @@
 # Farmácia Couto 🏥
 
-Site inicial e landing page institucional da Farmácia Couto.
+Landing page institucional + sistema de gestão interno da Farmácia Couto.
 
 ---
 
-## 🚀 Estrutura dos Arquivos
+## 🚀 Estrutura do Frontend (`frontend/`)
 
-Todo o conteúdo responsável pela parte inicial do site está organizado em `frontend/`:
+O frontend é um build **multi-página** do Vite:
 
-- **`frontend/index.html`**: Página inicial do site (HTML).
-- **`frontend/src/css/landing.css`**: Estilização visual e responsividade da landing page (CSS).
-- **`frontend/src/js/`**: Scripts JavaScript da página inicial:
-  - `main-landing.js`: Ponto de entrada e inicialização.
-  - `reveal-landing.js`: Animações de rolagem (Scroll Reveal).
-  - `ui-landing.js`: Utilitários de interface, máscaras e validações.
-  - `contato-landing.js`: Lógica de envio do formulário de contato.
-  - `clientes-landing.js`: Cadastro e listagem de clientes na landing.
-  - `auth-landing.js`: Autenticação e sessão.
-  - `config-landing.js`: Configurações de ambiente.
-  - `core/supabase-landing.js`: Integração com o Supabase.
+| Página | Arquivo | Descrição |
+|---|---|---|
+| `/` | `index.html` | Landing page institucional |
+| `/sistema.html` | `sistema.html` | Sistema de gestão (aberto pelo botão **🔐 Área Interna**) |
+
+- **Landing page**
+  - `src/css/landing.css`: estilos da landing.
+  - `src/js/landing.js`: animação do hero (canvas) e scroll reveal.
+  - `src/assets/logo.png`: logo (um único arquivo, cacheado pelo navegador).
+- **Sistema**
+  - `src/css/{variables,layout,components,dashboard}.css`: design system.
+  - `src/js/app.js`: roteador; `src/js/views/*`: telas; `src/js/api.js`: cliente da API Flask.
 
 ---
 
 ## 🛠️ Como Executar
 
-### 1. Iniciar o servidor local de desenvolvimento:
+### 1. Servidor local de desenvolvimento
 ```bash
-npm run dev
+npm run dev:frontend
 ```
-Acesse em: `http://localhost:5173`
+Acesse em: `http://localhost:5173` (landing) e `http://localhost:5173/sistema.html` (sistema).
 
-### 2. Gerar build de produção:
+### 2. Build de produção
 ```bash
 npm run build
 ```
-Os arquivos prontos para publicação serão gerados na pasta `frontend/dist/`.
+Os arquivos prontos para publicação serão gerados em `frontend/dist/`.
