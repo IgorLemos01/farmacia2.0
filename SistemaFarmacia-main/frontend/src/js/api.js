@@ -1,10 +1,87 @@
 // ============================================================
 //  API CLIENT — COMUNICAÇÃO COM O BACKEND FLASK
+//
+//  Com VITE_API_URL definida (frontend/.env), o sistema usa a API real
+//  e exige login. Sem ela, roda em MODO DEMONSTRAÇÃO com dados fictícios
+//  guardados só no navegador — nunca há "fallback" silencioso entre os dois.
 // ============================================================
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 
-// Dados de demonstração ricos caso o backend não esteja ativo no momento
+export const MODO_DEMO = !API_BASE_URL;
+export const API_DOCS_URL = API_BASE_URL ? `${API_BASE_URL}/docs` : 'http://localhost:5000/api/docs';
+
+export class ApiError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.status = status;
+  }
+}
+
+// ── Sessão (token JWT + usuário logado) ─────────────────────
+const TOKEN_KEY = 'fc_jwt_token';
+const USUARIO_KEY = 'fc_usuario';
+
+const USUARIO_DEMO = { nome: 'Usuário Demonstração', perfil: 'demo' };
+
+export const sessao = {
+  token() {
+    return localStorage.getItem(TOKEN_KEY);
+  },
+  usuario() {
+    if (MODO_DEMO) return USUARIO_DEMO;
+    try {
+      return JSON.parse(localStorage.getItem(USUARIO_KEY));
+    } catch (_) {
+      return null;
+    }
+  },
+  salvar(token, usuario) {
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(USUARIO_KEY, JSON.stringify(usuario));
+  },
+  limpar() {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USUARIO_KEY);
+  },
+};
+
+async function request(path, { method = 'GET', body } = {}) {
+  const token = sessao.token();
+  const headers = {};
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  let res;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch (_) {
+    throw new ApiError('Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.', 0);
+  }
+
+  const data = await res.json().catch(() => null);
+
+  if (res.status === 401 && path !== '/auth/login') {
+    sessao.limpar();
+    window.dispatchEvent(new CustomEvent('fc:sessao-expirada'));
+  }
+  if (!res.ok) {
+    // flask-restx devolve { message, errors? }, flask-jwt-extended devolve { msg }
+    let mensagem = data?.message || data?.msg || `Erro ${res.status} na requisição.`;
+    if (data?.errors) {
+      mensagem += ': ' + Object.entries(data.errors).map(([campo, erro]) => `${campo} (${erro})`).join('; ');
+    }
+    throw new ApiError(mensagem, res.status);
+  }
+  return data;
+}
+
+// ── Modo demonstração (dados fictícios no navegador) ────────
+// Dados fictícios usados apenas no modo demonstração
 const MOCK_DATA = {
   clientes: [
     {
@@ -122,213 +199,113 @@ const MOCK_DATA = {
   ],
 };
 
-// Funções auxiliares para localStorage
-function getStorage(key, defaultVal) {
-  const v = localStorage.getItem('fc_' + key);
-  return v ? JSON.parse(v) : defaultVal;
-}
+const demo = {
+  ler(chave) {
+    try {
+      const v = localStorage.getItem('fc_demo_' + chave);
+      if (v) return JSON.parse(v);
+    } catch (_) {}
+    return structuredClone(MOCK_DATA[chave]);
+  },
+  gravar(chave, lista) {
+    try {
+      localStorage.setItem('fc_demo_' + chave, JSON.stringify(lista));
+    } catch (_) {}
+  },
+  inserir(chave, dados) {
+    const lista = demo.ler(chave);
+    const novo = { id: Date.now(), ...dados, criado_em: new Date().toISOString() };
+    lista.unshift(novo);
+    demo.gravar(chave, lista);
+    return novo;
+  },
+};
 
-function setStorage(key, val) {
-  localStorage.setItem('fc_' + key, JSON.stringify(val));
-}
+// Remove dados antigos gravados por versões anteriores (sem prefixo "demo").
+['clientes', 'manipulacoes', 'exames', 'receitas'].forEach(k => {
+  try { localStorage.removeItem('fc_' + k); } catch (_) {}
+});
 
-// Inicializa o mock no localStorage se necessário
-if (!localStorage.getItem('fc_clientes')) setStorage('clientes', MOCK_DATA.clientes);
-if (!localStorage.getItem('fc_manipulacoes')) setStorage('manipulacoes', MOCK_DATA.manipulacoes);
-if (!localStorage.getItem('fc_exames')) setStorage('exames', MOCK_DATA.exames);
-if (!localStorage.getItem('fc_receitas')) setStorage('receitas', MOCK_DATA.receitas);
+const comBusca = termo => (termo ? `?q=${encodeURIComponent(termo)}` : '');
 
 export const api = {
+  // --- Autenticação ---
+  async login(email, senha) {
+    const data = await request('/auth/login', { method: 'POST', body: { email, senha } });
+    sessao.salvar(data.access_token, data.usuario);
+    return data.usuario;
+  },
+
   // --- Clientes ---
   async listarClientes(termo = '') {
-    try {
-      const token = localStorage.getItem('fc_jwt_token');
-      const url = `${API_BASE_URL}/clientes${termo ? `?q=${encodeURIComponent(termo)}` : ''}`;
-      const res = await fetch(url, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data.itens || [];
-      }
-    } catch (_) {}
+    if (!MODO_DEMO) return (await request(`/clientes${comBusca(termo)}`)).itens || [];
 
-    // Fallback local
-    const lista = getStorage('clientes', MOCK_DATA.clientes);
+    const lista = demo.ler('clientes');
     if (!termo) return lista;
     const q = termo.toLowerCase();
     return lista.filter(c =>
       c.nome.toLowerCase().includes(q) ||
       c.cpf.includes(q) ||
-      c.telefone.includes(q)
+      c.telefone.includes(q) ||
+      (c.email || '').toLowerCase().includes(q)
     );
   },
 
   async cadastrarCliente(dados) {
-    try {
-      const token = localStorage.getItem('fc_jwt_token');
-      const res = await fetch(`${API_BASE_URL}/clientes`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(dados),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data.cliente;
-      }
-    } catch (_) {}
+    if (!MODO_DEMO) return (await request('/clientes', { method: 'POST', body: dados })).cliente;
 
-    // Fallback local
-    const lista = getStorage('clientes', MOCK_DATA.clientes);
-    const novo = {
-      id: Date.now(),
-      ...dados,
-      criado_em: new Date().toISOString(),
-    };
-    lista.unshift(novo);
-    setStorage('clientes', lista);
-    return novo;
+    if (demo.ler('clientes').some(c => c.cpf === dados.cpf)) {
+      throw new ApiError(`Já existe um cliente cadastrado com o CPF ${dados.cpf}.`, 400);
+    }
+    return demo.inserir('clientes', dados);
   },
 
   async obterDossieCliente(id) {
-    try {
-      const token = localStorage.getItem('fc_jwt_token');
-      const res = await fetch(`${API_BASE_URL}/clientes/${id}/dossie`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (res.ok) return await res.json();
-    } catch (_) {}
+    if (!MODO_DEMO) return request(`/clientes/${encodeURIComponent(id)}/dossie`);
 
-    // Fallback local
-    const clientes = getStorage('clientes', MOCK_DATA.clientes);
-    const cliente = clientes.find(c => c.id == id);
-    const manipulacoes = getStorage('manipulacoes', MOCK_DATA.manipulacoes).filter(m => m.cliente_id == id);
-    const exames = getStorage('exames', MOCK_DATA.exames).filter(e => e.cliente_id == id);
-    const receitas = getStorage('receitas', MOCK_DATA.receitas).filter(r => r.cliente_id == id);
-
+    const cliente = demo.ler('clientes').find(c => c.id == id);
+    if (!cliente) throw new ApiError('Cliente não encontrado.', 404);
+    const doCliente = chave => demo.ler(chave).filter(item => item.cliente_id == id);
     return {
       cliente,
-      historico: { manipulacoes, exames, receitas },
+      historico: {
+        manipulacoes: doCliente('manipulacoes'),
+        exames: doCliente('exames'),
+        receitas: doCliente('receitas'),
+      },
     };
   },
 
   // --- Manipulações ---
   async listarManipulacoes() {
-    try {
-      const token = localStorage.getItem('fc_jwt_token');
-      const res = await fetch(`${API_BASE_URL}/manipulacoes`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data.itens || [];
-      }
-    } catch (_) {}
-    return getStorage('manipulacoes', MOCK_DATA.manipulacoes);
+    if (!MODO_DEMO) return (await request('/manipulacoes')).itens || [];
+    return demo.ler('manipulacoes');
   },
 
   async cadastrarManipulacao(dados) {
-    try {
-      const token = localStorage.getItem('fc_jwt_token');
-      const res = await fetch(`${API_BASE_URL}/manipulacoes`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(dados),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data.manipulacao;
-      }
-    } catch (_) {}
-
-    const lista = getStorage('manipulacoes', MOCK_DATA.manipulacoes);
-    const novo = { id: Date.now(), ...dados, criado_em: new Date().toISOString() };
-    lista.unshift(novo);
-    setStorage('manipulacoes', lista);
-    return novo;
+    if (!MODO_DEMO) return (await request('/manipulacoes', { method: 'POST', body: dados })).manipulacao;
+    return demo.inserir('manipulacoes', dados);
   },
 
   // --- Exames ---
   async listarExames() {
-    try {
-      const token = localStorage.getItem('fc_jwt_token');
-      const res = await fetch(`${API_BASE_URL}/exames`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data.itens || [];
-      }
-    } catch (_) {}
-    return getStorage('exames', MOCK_DATA.exames);
+    if (!MODO_DEMO) return (await request('/exames')).itens || [];
+    return demo.ler('exames');
   },
 
   async cadastrarExame(dados) {
-    try {
-      const token = localStorage.getItem('fc_jwt_token');
-      const res = await fetch(`${API_BASE_URL}/exames`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(dados),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data.exame;
-      }
-    } catch (_) {}
-
-    const lista = getStorage('exames', MOCK_DATA.exames);
-    const novo = { id: Date.now(), ...dados, criado_em: new Date().toISOString() };
-    lista.unshift(novo);
-    setStorage('exames', lista);
-    return novo;
+    if (!MODO_DEMO) return (await request('/exames', { method: 'POST', body: dados })).exame;
+    return demo.inserir('exames', dados);
   },
 
   // --- Receitas ---
   async listarReceitas() {
-    try {
-      const token = localStorage.getItem('fc_jwt_token');
-      const res = await fetch(`${API_BASE_URL}/receitas`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data.itens || [];
-      }
-    } catch (_) {}
-    return getStorage('receitas', MOCK_DATA.receitas);
+    if (!MODO_DEMO) return (await request('/receitas')).itens || [];
+    return demo.ler('receitas');
   },
 
   async cadastrarReceita(dados) {
-    try {
-      const token = localStorage.getItem('fc_jwt_token');
-      const res = await fetch(`${API_BASE_URL}/receitas`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(dados),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data.receita;
-      }
-    } catch (_) {}
-
-    const lista = getStorage('receitas', MOCK_DATA.receitas);
-    const novo = { id: Date.now(), ...dados, criado_em: new Date().toISOString() };
-    lista.unshift(novo);
-    setStorage('receitas', lista);
-    return novo;
+    if (!MODO_DEMO) return (await request('/receitas', { method: 'POST', body: dados })).receita;
+    return demo.inserir('receitas', dados);
   },
 };

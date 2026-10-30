@@ -5,12 +5,8 @@
 export const state = {
   currentRoute: 'dashboard',
   searchTerm: '',
-  currentUser: {
-    nome: 'Igor Lemos',
-    cargo: 'Farmacêutico Responsável',
-    email: 'igor@farmaciacouto.com.br',
-    avatar: '👨🏻‍⚕️',
-  },
+  // Preenchido após o login (ou com o usuário fictício no modo demonstração)
+  currentUser: null,
   listeners: [],
 
   subscribe(listener) {

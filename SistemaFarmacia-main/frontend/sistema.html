@@ -124,7 +124,7 @@
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" onclick="alert('Suporte e Documentação da API: http://localhost:5000/api/docs')">
+          <a class="nav-link" id="linkAjudaApi">
             <div class="nav-link-content">
               <!-- Ícone Ajuda -->
               <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -181,12 +181,15 @@
             <span class="badge-dot"></span>
           </button>
 
-          <!-- Perfil do Usuário com Avatar -->
-          <div class="user-profile-badge">
+          <!-- Aviso de modo demonstração (sem API configurada) -->
+          <span class="badge badge-warning" id="badgeModoDemo" style="display: none;" title="Dados fictícios guardados apenas neste navegador">Modo demonstração</span>
+
+          <!-- Perfil do Usuário com Avatar (clique para sair) -->
+          <div class="user-profile-badge" id="userProfileBadge">
             <div class="user-avatar">👨🏻‍⚕️</div>
             <div class="user-info">
-              <span class="user-name">Igor Lemos</span>
-              <span class="user-role">Farmacêutico Responsável</span>
+              <span class="user-name" id="userNameText"></span>
+              <span class="user-role" id="userRoleText"></span>
             </div>
           </div>
         </div>
@@ -215,6 +218,30 @@
 
     </main>
 
+  </div>
+
+  <!-- TELA DE LOGIN (exibida quando a API está configurada e não há sessão) -->
+  <div class="modal-overlay" id="modalLogin">
+    <div class="modal-card" style="max-width: 420px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Entrar no sistema</h3>
+      </div>
+      <form id="formLogin">
+        <div class="form-group">
+          <label class="form-label" for="login_email">E-mail</label>
+          <input type="email" class="form-input" id="login_email" required autocomplete="username"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="login_senha">Senha</label>
+          <input type="password" class="form-input" id="login_senha" required autocomplete="current-password"/>
+        </div>
+        <p id="loginErro" role="alert" hidden style="color: #9b1c1c; font-size: 0.82rem; margin-bottom: 12px;"></p>
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+          <a href="/" style="font-size: 0.82rem; color: var(--text-muted);">← Voltar ao site</a>
+          <button type="submit" class="btn btn-primary" id="btnEntrar">Entrar</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- Script Principal Modular -->

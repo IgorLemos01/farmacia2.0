@@ -3,6 +3,7 @@
 // ============================================================
 
 import { api } from '../api.js';
+import { escapeHtml as esc } from '../utils.js';
 
 export async function renderExames(container) {
   const [exames, clientes] = await Promise.all([
@@ -41,18 +42,18 @@ export async function renderExames(container) {
                 : exames.map(e => `
                     <tr>
                       <td>
-                        <div style="font-weight: 700; color: var(--text-title);">${e.cliente_nome || 'Cliente #' + e.cliente_id}</div>
+                        <div style="font-weight: 700; color: var(--text-title);">${esc(e.cliente_nome || 'Cliente #' + e.cliente_id)}</div>
                       </td>
                       <td>
-                        <span class="badge badge-info" style="font-size: 0.8rem; font-weight: 600;">🩺 ${e.tipo_exame}</span>
+                        <span class="badge badge-info" style="font-size: 0.8rem; font-weight: 600;">🩺 ${esc(e.tipo_exame)}</span>
                       </td>
-                      <td>${e.data || '-'}</td>
+                      <td>${esc(e.data || '-')}</td>
                       <td>
                         <div style="font-weight: 700;">R$ ${Number(e.valor || 0).toFixed(2)}</div>
-                        <div style="font-size: 0.72rem; color: var(--text-muted);">${e.forma_pagamento || '-'}</div>
+                        <div style="font-size: 0.72rem; color: var(--text-muted);">${esc(e.forma_pagamento || '-')}</div>
                       </td>
                       <td style="font-size: 0.82rem; color: var(--text-body); max-width: 240px;">
-                        ${e.observacoes || '-'}
+                        ${esc(e.observacoes || '-')}
                       </td>
                     </tr>
                   `).join('')
@@ -75,7 +76,7 @@ export async function renderExames(container) {
               <label class="form-label">Selecionar Paciente <span class="req">*</span></label>
               <select class="form-select" id="exame_cliente_id" required>
                 <option value="">-- Escolha um cliente --</option>
-                ${clientes.map(c => `<option value="${c.id}">${c.nome} (CPF: ${c.cpf})</option>`).join('')}
+                ${clientes.map(c => `<option value="${Number(c.id)}">${esc(c.nome)} (CPF: ${esc(c.cpf)})</option>`).join('')}
               </select>
             </div>
 
@@ -139,8 +140,12 @@ export async function renderExames(container) {
       observacoes: document.getElementById('exame_obs').value.trim() || null,
     };
 
-    await api.cadastrarExame(payload);
-    modal.classList.remove('active');
-    renderExames(container);
+    try {
+      await api.cadastrarExame(payload);
+      modal.classList.remove('active');
+      await renderExames(container);
+    } catch (err) {
+      alert('Erro ao salvar: ' + err.message);
+    }
   };
 }

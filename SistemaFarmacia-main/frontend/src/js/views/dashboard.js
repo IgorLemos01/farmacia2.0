@@ -3,6 +3,8 @@
 // ============================================================
 
 import { api } from '../api.js';
+import { state } from '../state.js';
+import { escapeHtml as esc } from '../utils.js';
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -157,7 +159,7 @@ export async function renderDashboard(container, searchTerm, filtros = {}) {
 
     <!-- SAUDAÇÃO -->
     <p style="font-size: 0.95rem; font-weight: 600; color: var(--text-body); margin-bottom: 14px;">
-      ${getGreeting()}, <span style="color: var(--color-primary-dark);">Administrador!</span>
+      ${getGreeting()}, <span style="color: var(--color-primary-dark);">${esc((state.currentUser?.nome || 'Administrador').split(' ')[0])}!</span>
     </p>
 
     <!-- LINHA DE 6 MÉTRICAS -->
@@ -255,8 +257,8 @@ export async function renderDashboard(container, searchTerm, filtros = {}) {
                       <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
                         <span style="font-size: 0.68rem; font-weight: 700; background: ${bg}; color: ${cor}; padding: 3px 9px; border-radius: 99px; white-space: nowrap; flex-shrink: 0;">${item.tipo}</span>
                         <div style="min-width: 0;">
-                          <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-title); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.cliente}</div>
-                          <div style="font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;">${item.descricao}</div>
+                          <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-title); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${esc(item.cliente)}</div>
+                          <div style="font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;">${esc(item.descricao)}</div>
                         </div>
                       </div>
                       <div style="text-align: right; flex-shrink: 0; margin-left: 10px;">

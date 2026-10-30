@@ -3,6 +3,7 @@
 // ============================================================
 
 import { api } from '../api.js';
+import { escapeHtml as esc } from '../utils.js';
 
 export async function renderManipulacoes(container) {
   const [manipulacoes, clientes] = await Promise.all([
@@ -42,21 +43,21 @@ export async function renderManipulacoes(container) {
                 : manipulacoes.map(m => `
                     <tr>
                       <td>
-                        <div style="font-weight: 700; color: var(--text-title);">${m.cliente_nome || 'Cliente #' + m.cliente_id}</div>
+                        <div style="font-weight: 700; color: var(--text-title);">${esc(m.cliente_nome || 'Cliente #' + m.cliente_id)}</div>
                       </td>
                       <td style="max-width: 280px;">
-                        <div style="font-weight: 600; color: var(--color-primary-dark); font-size: 0.88rem;">${m.formula}</div>
+                        <div style="font-weight: 600; color: var(--color-primary-dark); font-size: 0.88rem;">${esc(m.formula)}</div>
                       </td>
-                      <td>${m.data || '-'}</td>
+                      <td>${esc(m.data || '-')}</td>
                       <td>
-                        <span class="badge badge-warning">📅 ${m.prazo_entrega || 'A definir'}</span>
+                        <span class="badge badge-warning">📅 ${esc(m.prazo_entrega || 'A definir')}</span>
                       </td>
                       <td>
                         <div style="font-weight: 700;">R$ ${Number(m.valor || 0).toFixed(2)}</div>
-                        <div style="font-size: 0.72rem; color: var(--text-muted);">${m.forma_pagamento || 'Não informado'}</div>
+                        <div style="font-size: 0.72rem; color: var(--text-muted);">${esc(m.forma_pagamento || 'Não informado')}</div>
                       </td>
                       <td style="font-size: 0.78rem; color: var(--text-muted); max-width: 180px;">
-                        ${m.observacoes || '-'}
+                        ${esc(m.observacoes || '-')}
                       </td>
                     </tr>
                   `).join('')
@@ -79,7 +80,7 @@ export async function renderManipulacoes(container) {
               <label class="form-label">Selecionar Cliente <span class="req">*</span></label>
               <select class="form-select" id="manip_cliente_id" required>
                 <option value="">-- Escolha um cliente --</option>
-                ${clientes.map(c => `<option value="${c.id}">${c.nome} (CPF: ${c.cpf})</option>`).join('')}
+                ${clientes.map(c => `<option value="${Number(c.id)}">${esc(c.nome)} (CPF: ${esc(c.cpf)})</option>`).join('')}
               </select>
             </div>
 
@@ -150,8 +151,12 @@ export async function renderManipulacoes(container) {
       observacoes: document.getElementById('manip_obs').value.trim() || null,
     };
 
-    await api.cadastrarManipulacao(payload);
-    modal.classList.remove('active');
-    renderManipulacoes(container);
+    try {
+      await api.cadastrarManipulacao(payload);
+      modal.classList.remove('active');
+      await renderManipulacoes(container);
+    } catch (err) {
+      alert('Erro ao salvar: ' + err.message);
+    }
   };
 }

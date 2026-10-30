@@ -3,6 +3,7 @@
 // ============================================================
 
 import { api } from '../api.js';
+import { escapeHtml as esc } from '../utils.js';
 
 export async function renderReceitas(container) {
   const [receitas, clientes] = await Promise.all([
@@ -40,16 +41,16 @@ export async function renderReceitas(container) {
                 : receitas.map(r => `
                     <tr>
                       <td>
-                        <div style="font-weight: 700; color: var(--text-title);">${r.cliente_nome || 'Cliente #' + r.cliente_id}</div>
+                        <div style="font-weight: 700; color: var(--text-title);">${esc(r.cliente_nome || 'Cliente #' + r.cliente_id)}</div>
                       </td>
                       <td>
-                        <div style="font-weight: 600; color: var(--text-title);">${r.medico_prescritor}</div>
+                        <div style="font-weight: 600; color: var(--text-title);">${esc(r.medico_prescritor)}</div>
                       </td>
                       <td style="max-width: 320px;">
-                        <div style="font-size: 0.86rem; color: var(--text-body);">${r.medicamentos}</div>
+                        <div style="font-size: 0.86rem; color: var(--text-body);">${esc(r.medicamentos)}</div>
                       </td>
                       <td>
-                        <span class="badge badge-neutral">🗓️ ${r.data_venda}</span>
+                        <span class="badge badge-neutral">🗓️ ${esc(r.data_venda)}</span>
                       </td>
                     </tr>
                   `).join('')
@@ -72,7 +73,7 @@ export async function renderReceitas(container) {
               <label class="form-label">Selecionar Paciente <span class="req">*</span></label>
               <select class="form-select" id="rec_cliente_id" required>
                 <option value="">-- Escolha um cliente --</option>
-                ${clientes.map(c => `<option value="${c.id}">${c.nome} (CPF: ${c.cpf})</option>`).join('')}
+                ${clientes.map(c => `<option value="${Number(c.id)}">${esc(c.nome)} (CPF: ${esc(c.cpf)})</option>`).join('')}
               </select>
             </div>
 
@@ -119,8 +120,12 @@ export async function renderReceitas(container) {
       data_venda: document.getElementById('rec_data').value,
     };
 
-    await api.cadastrarReceita(payload);
-    modal.classList.remove('active');
-    renderReceitas(container);
+    try {
+      await api.cadastrarReceita(payload);
+      modal.classList.remove('active');
+      await renderReceitas(container);
+    } catch (err) {
+      alert('Erro ao salvar: ' + err.message);
+    }
   };
 }

@@ -3,6 +3,7 @@
 // ============================================================
 
 import { api } from '../api.js';
+import { escapeHtml as esc } from '../utils.js';
 
 export async function renderClientes(container, searchTerm = '') {
   const clientes = await api.listarClientes(searchTerm);
@@ -42,34 +43,34 @@ export async function renderClientes(container, searchTerm = '') {
                     <tr>
                       <td>
                         <div class="cell-user">
-                          <div class="user-initials">${c.nome.substring(0, 2).toUpperCase()}</div>
+                          <div class="user-initials">${esc(c.nome.substring(0, 2).toUpperCase())}</div>
                           <div>
-                            <div style="font-weight: 700; color: var(--text-title);">${c.nome}</div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted);">${c.email}</div>
+                            <div style="font-weight: 700; color: var(--text-title);">${esc(c.nome)}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">${esc(c.email)}</div>
                           </div>
                         </div>
                       </td>
                       <td>
-                        <div style="font-weight: 600; font-family: monospace;">${c.cpf}</div>
-                        <div style="font-size: 0.75rem; color: var(--text-muted);">${c.rg || '-'}</div>
+                        <div style="font-weight: 600; font-family: monospace;">${esc(c.cpf)}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">${esc(c.rg || '-')}</div>
                       </td>
                       <td>
-                        <div style="font-weight: 500;">${c.telefone}</div>
-                        <div style="font-size: 0.72rem; color: var(--text-muted); max-width: 180px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${c.endereco}</div>
+                        <div style="font-weight: 500;">${esc(c.telefone)}</div>
+                        <div style="font-size: 0.72rem; color: var(--text-muted); max-width: 180px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${esc(c.endereco)}</div>
                       </td>
                       <td>
                         <span class="badge badge-neutral">${c.sexo === 'M' ? 'Masc' : c.sexo === 'F' ? 'Fem' : 'Outro'}</span>
-                        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">${c.data_nascimento || '-'}</div>
+                        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">${esc(c.data_nascimento || '-')}</div>
                       </td>
                       <td>
                         ${
                           c.alergia
-                            ? `<span class="badge badge-danger" title="${c.alergia}">⚠️ ${c.alergia}</span>`
+                            ? `<span class="badge badge-danger" title="${esc(c.alergia)}">⚠️ ${esc(c.alergia)}</span>`
                             : `<span class="badge badge-success">Nenhuma</span>`
                         }
                       </td>
                       <td style="text-align: right;">
-                        <button class="btn btn-secondary btn-sm" onclick="window.abrirDossie(${c.id})" style="border-radius: var(--radius-pill); font-weight: 600;">
+                        <button class="btn btn-secondary btn-sm" onclick="window.abrirDossie(${Number(c.id)})" style="border-radius: var(--radius-pill); font-weight: 600;">
                           Dossiê 360° →
                         </button>
                       </td>
@@ -186,7 +187,7 @@ export async function renderClientes(container, searchTerm = '') {
     try {
       await api.cadastrarCliente(payload);
       modal.classList.remove('active');
-      renderClientes(container);
+      await renderClientes(container);
     } catch (err) {
       alert('Erro ao cadastrar cliente: ' + err.message);
     }
@@ -200,17 +201,23 @@ export async function renderClientes(container, searchTerm = '') {
 
     drawerContent.innerHTML = `<div style="text-align: center; padding: 40px; color: var(--text-muted);">Carregando histórico do paciente...</div>`;
 
-    const dossie = await api.obterDossieCliente(id);
+    let dossie;
+    try {
+      dossie = await api.obterDossieCliente(id);
+    } catch (err) {
+      drawerContent.innerHTML = `<div style="text-align: center; padding: 40px; color: var(--text-muted);">Não foi possível carregar o dossiê: ${esc(err.message)}</div>`;
+      return;
+    }
     const c = dossie.cliente;
     const h = dossie.historico;
 
     drawerContent.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
         <div style="display: flex; gap: 14px; align-items: center;">
-          <div class="user-initials" style="width: 52px; height: 52px; font-size: 1.2rem;">${c.nome.substring(0, 2).toUpperCase()}</div>
+          <div class="user-initials" style="width: 52px; height: 52px; font-size: 1.2rem;">${esc(c.nome.substring(0, 2).toUpperCase())}</div>
           <div>
-            <h3 style="font-size: 1.2rem; font-weight: 800; color: var(--text-title);">${c.nome}</h3>
-            <span style="font-size: 0.78rem; color: var(--text-muted); font-family: monospace;">CPF: ${c.cpf} • RG: ${c.rg}</span>
+            <h3 style="font-size: 1.2rem; font-weight: 800; color: var(--text-title);">${esc(c.nome)}</h3>
+            <span style="font-size: 0.78rem; color: var(--text-muted); font-family: monospace;">CPF: ${esc(c.cpf)} • RG: ${esc(c.rg)}</span>
           </div>
         </div>
         <button class="modal-close" onclick="document.getElementById('drawerDossie').classList.remove('active')">&times;</button>
@@ -222,17 +229,17 @@ export async function renderClientes(container, searchTerm = '') {
                <div style="color: #9b1c1c; font-weight: 700; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;">
                  ⚠️ ALERTA DE ALERGIA:
                </div>
-               <div style="color: #771d1d; font-size: 0.82rem; margin-top: 2px;">${c.alergia}</div>
+               <div style="color: #771d1d; font-size: 0.82rem; margin-top: 2px;">${esc(c.alergia)}</div>
              </div>`
           : ''
       }
 
       <div style="background: #f8faf9; border: 1px solid var(--border-light); padding: 16px; border-radius: var(--radius-lg); margin-bottom: 24px; font-size: 0.84rem; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-        <div><strong>Telefone:</strong> ${c.telefone}</div>
-        <div><strong>E-mail:</strong> ${c.email}</div>
-        <div><strong>Nascimento:</strong> ${c.data_nascimento}</div>
+        <div><strong>Telefone:</strong> ${esc(c.telefone)}</div>
+        <div><strong>E-mail:</strong> ${esc(c.email)}</div>
+        <div><strong>Nascimento:</strong> ${esc(c.data_nascimento)}</div>
         <div><strong>Sexo:</strong> ${c.sexo === 'M' ? 'Masculino' : c.sexo === 'F' ? 'Feminino' : 'Outro'}</div>
-        <div style="grid-column: 1 / -1;"><strong>Endereço:</strong> ${c.endereco}</div>
+        <div style="grid-column: 1 / -1;"><strong>Endereço:</strong> ${esc(c.endereco)}</div>
       </div>
 
       <h4 style="font-size: 0.95rem; font-weight: 800; color: var(--text-title); margin-bottom: 12px;">Histórico Clínico Unificado</h4>
@@ -247,10 +254,10 @@ export async function renderClientes(container, searchTerm = '') {
             ? `<p style="font-size: 0.78rem; color: var(--text-muted); font-style: italic;">Nenhuma fórmula registrada.</p>`
             : h.manipulacoes.map(m => `
                 <div style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 12px; margin-bottom: 8px;">
-                  <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-title);">${m.formula}</div>
+                  <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-title);">${esc(m.formula)}</div>
                   <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">
-                    <span>Data: ${m.data} • Prazo: ${m.prazo_entrega || '-'}</span>
-                    <strong style="color: var(--color-primary-dark);">R$ ${Number(m.valor || 0).toFixed(2)} (${m.forma_pagamento || '-'})</strong>
+                    <span>Data: ${esc(m.data)} • Prazo: ${esc(m.prazo_entrega || '-')}</span>
+                    <strong style="color: var(--color-primary-dark);">R$ ${Number(m.valor || 0).toFixed(2)} (${esc(m.forma_pagamento || '-')})</strong>
                   </div>
                 </div>
               `).join('')
@@ -263,13 +270,13 @@ export async function renderClientes(container, searchTerm = '') {
         ${
           h.exames.length === 0
             ? `<p style="font-size: 0.78rem; color: var(--text-muted); font-style: italic; margin-top: 6px;">Nenhum exame registrado.</p>`
-            : h.exames.map(e => `
+            : h.exames.map(ex => `
                 <div style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 12px; margin-top: 8px;">
-                  <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-title);">${e.tipo_exame}</div>
-                  <div style="font-size: 0.78rem; color: var(--text-body); margin-top: 4px;">${e.observacoes || 'Sem observações'}</div>
+                  <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-title);">${esc(ex.tipo_exame)}</div>
+                  <div style="font-size: 0.78rem; color: var(--text-body); margin-top: 4px;">${esc(ex.observacoes || 'Sem observações')}</div>
                   <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">
-                    <span>Data: ${e.data}</span>
-                    <strong style="color: var(--color-primary-dark);">R$ ${Number(e.valor || 0).toFixed(2)}</strong>
+                    <span>Data: ${esc(ex.data)}</span>
+                    <strong style="color: var(--color-primary-dark);">R$ ${Number(ex.valor || 0).toFixed(2)}</strong>
                   </div>
                 </div>
               `).join('')
@@ -284,9 +291,9 @@ export async function renderClientes(container, searchTerm = '') {
             ? `<p style="font-size: 0.78rem; color: var(--text-muted); font-style: italic; margin-top: 6px;">Nenhuma receita registrada.</p>`
             : h.receitas.map(r => `
                 <div style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 12px; margin-top: 8px;">
-                  <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-title);">${r.medico_prescritor}</div>
-                  <div style="font-size: 0.78rem; color: var(--text-body); margin-top: 4px;"><strong>Prescrição:</strong> ${r.medicamentos}</div>
-                  <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">Data de atendimento: ${r.data_venda}</div>
+                  <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-title);">${esc(r.medico_prescritor)}</div>
+                  <div style="font-size: 0.78rem; color: var(--text-body); margin-top: 4px;"><strong>Prescrição:</strong> ${esc(r.medicamentos)}</div>
+                  <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">Data de atendimento: ${esc(r.data_venda)}</div>
                 </div>
               `).join('')
         }
