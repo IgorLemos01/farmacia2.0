@@ -1,9 +1,9 @@
-import datetime
 # pyrefly: ignore[missing-import]
 from sqlalchemy import or_
 
 from app.extensions import db
 from app.models.cliente import Cliente
+from app.utils import parse_data
 
 
 class ClienteService:
@@ -36,7 +36,7 @@ class ClienteService:
 
     @staticmethod
     def obter_por_id(cliente_id: int) -> Cliente:
-        return Cliente.query.get(cliente_id)
+        return db.session.get(Cliente, cliente_id)
 
     @staticmethod
     def cadastrar(dados: dict) -> Cliente:
@@ -68,12 +68,7 @@ class ClienteService:
         if sexo not in ("M", "F", "Outro"):
             raise ValueError("Sexo inválido. Utilize 'M', 'F' ou 'Outro'.")
 
-        data_nasc = dados.get("data_nascimento")
-        if isinstance(data_nasc, str):
-            try:
-                data_nasc = datetime.date.fromisoformat(data_nasc)
-            except ValueError:
-                raise ValueError("Data de nascimento inválida. Use o formato AAAA-MM-DD.")
+        data_nasc = parse_data(dados.get("data_nascimento"), "Data de nascimento")
 
         cliente = Cliente(
             nome=dados["nome"].strip(),
@@ -94,7 +89,7 @@ class ClienteService:
 
     @staticmethod
     def atualizar(cliente_id: int, dados: dict) -> Cliente:
-        cliente = Cliente.query.get(cliente_id)
+        cliente = db.session.get(Cliente, cliente_id)
         if not cliente:
             raise ValueError("Cliente não encontrado.")
 
@@ -110,11 +105,10 @@ class ClienteService:
         if "rg" in dados:
             cliente.rg = dados["rg"].strip()
         if "data_nascimento" in dados:
-            val = dados["data_nascimento"]
-            if isinstance(val, str):
-                cliente.data_nascimento = datetime.date.fromisoformat(val)
-            else:
-                cliente.data_nascimento = val
+            data_nasc = parse_data(dados["data_nascimento"], "Data de nascimento")
+            if not data_nasc:
+                raise ValueError("Data de nascimento é obrigatória.")
+            cliente.data_nascimento = data_nasc
         if "sexo" in dados:
             if dados["sexo"] not in ("M", "F", "Outro"):
                 raise ValueError("Sexo inválido. Utilize 'M', 'F' ou 'Outro'.")
@@ -135,7 +129,7 @@ class ClienteService:
 
     @staticmethod
     def deletar(cliente_id: int):
-        cliente = Cliente.query.get(cliente_id)
+        cliente = db.session.get(Cliente, cliente_id)
         if not cliente:
             raise ValueError("Cliente não encontrado.")
 
@@ -151,7 +145,7 @@ class ClienteService:
     @staticmethod
     def obter_dossie(cliente_id: int) -> dict:
         """Retorna os dados cadastrais do cliente + histórico completo de saúde."""
-        cliente = Cliente.query.get(cliente_id)
+        cliente = db.session.get(Cliente, cliente_id)
         if not cliente:
             raise ValueError("Cliente não encontrado.")
 

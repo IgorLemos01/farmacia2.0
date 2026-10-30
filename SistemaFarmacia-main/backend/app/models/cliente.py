@@ -1,5 +1,5 @@
-import datetime
 from app.extensions import db
+from app.utils import agora_utc
 
 
 class Cliente(db.Model):
@@ -35,7 +35,7 @@ class Cliente(db.Model):
     endereco = db.Column(db.String(300), nullable=False)
     alergia = db.Column(db.Text, nullable=True)
     observacoes = db.Column(db.Text, nullable=True)
-    criado_em = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+    criado_em = db.Column(db.DateTime, nullable=False, default=agora_utc)
 
     # Relacionamentos
     manipulacoes = db.relationship("Manipulacao", back_populates="cliente", lazy="dynamic")

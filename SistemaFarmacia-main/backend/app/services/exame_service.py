@@ -2,6 +2,7 @@ import datetime
 from app.extensions import db
 from app.models.exame import Exame
 from app.models.cliente import Cliente
+from app.utils import parse_data
 
 
 class ExameService:
@@ -25,7 +26,7 @@ class ExameService:
 
     @staticmethod
     def obter_por_id(exame_id: int) -> Exame:
-        return Exame.query.get(exame_id)
+        return db.session.get(Exame, exame_id)
 
     @staticmethod
     def cadastrar(dados: dict) -> Exame:
@@ -33,7 +34,7 @@ class ExameService:
         if not cliente_id:
             raise ValueError("O ID do cliente (cliente_id) é obrigatório.")
 
-        cliente = Cliente.query.get(cliente_id)
+        cliente = db.session.get(Cliente, cliente_id)
         if not cliente:
             raise ValueError(f"Cliente com ID {cliente_id} não encontrado.")
 
@@ -41,12 +42,7 @@ class ExameService:
         if not tipo_exame:
             raise ValueError("O tipo do exame é obrigatório.")
 
-        data_exame = dados.get("data")
-        if data_exame:
-            if isinstance(data_exame, str):
-                data_exame = datetime.date.fromisoformat(data_exame)
-        else:
-            data_exame = datetime.date.today()
+        data_exame = parse_data(dados.get("data"), "Data do exame") or datetime.date.today()
 
         exame = Exame(
             cliente_id=cliente_id,
@@ -63,15 +59,14 @@ class ExameService:
 
     @staticmethod
     def atualizar(exame_id: int, dados: dict) -> Exame:
-        exame = Exame.query.get(exame_id)
+        exame = db.session.get(Exame, exame_id)
         if not exame:
             raise ValueError("Exame não encontrado.")
 
         if "tipo_exame" in dados:
             exame.tipo_exame = dados["tipo_exame"].strip()
         if "data" in dados and dados["data"]:
-            val = dados["data"]
-            exame.data = datetime.date.fromisoformat(val) if isinstance(val, str) else val
+            exame.data = parse_data(dados["data"], "Data do exame")
         if "valor" in dados:
             exame.valor = dados["valor"]
         if "forma_pagamento" in dados:
@@ -84,7 +79,7 @@ class ExameService:
 
     @staticmethod
     def deletar(exame_id: int):
-        exame = Exame.query.get(exame_id)
+        exame = db.session.get(Exame, exame_id)
         if not exame:
             raise ValueError("Exame não encontrado.")
         db.session.delete(exame)

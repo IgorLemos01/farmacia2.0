@@ -2,6 +2,7 @@ from flask import request
 from flask_restx import Namespace, Resource, fields
 from flask_jwt_extended import jwt_required
 
+from app.routes.campos import NumeroOpcional, TextoOpcional
 from app.services.cliente_service import ClienteService
 
 ns = Namespace("clientes", description="Gestão de clientes da farmácia")
@@ -18,24 +19,24 @@ modelo_cliente_entrada = ns.model(
         "telefone": fields.String(required=True, example="(79) 99999-8888"),
         "email": fields.String(required=True, example="joao.silva@email.com"),
         "endereco": fields.String(required=True, example="Rua das Flores, 123, Centro"),
-        "alergia": fields.String(required=False, example="Dipirona, Penicilina", description="Alergias conhecidas"),
-        "observacoes": fields.String(required=False, example="Cliente prefere contato via WhatsApp"),
+        "alergia": TextoOpcional(required=False, example="Dipirona, Penicilina", description="Alergias conhecidas"),
+        "observacoes": TextoOpcional(required=False, example="Cliente prefere contato via WhatsApp"),
     },
 )
 
 modelo_cliente_edicao = ns.model(
     "ClienteEdicao",
     {
-        "nome": fields.String(required=False, example="João Silva"),
-        "cpf": fields.String(required=False, example="123.456.789-00"),
-        "rg": fields.String(required=False, example="12.345.678-9"),
-        "data_nascimento": fields.String(required=False, example="1990-05-15"),
-        "sexo": fields.String(required=False, example="M", enum=["M", "F", "Outro"]),
-        "telefone": fields.String(required=False, example="(79) 99999-8888"),
-        "email": fields.String(required=False, example="joao.silva@email.com"),
-        "endereco": fields.String(required=False, example="Rua das Flores, 123, Centro"),
-        "alergia": fields.String(required=False, example="Dipirona, Penicilina"),
-        "observacoes": fields.String(required=False, example="Cliente prefere contato via WhatsApp"),
+        "nome": TextoOpcional(required=False, example="João Silva"),
+        "cpf": TextoOpcional(required=False, example="123.456.789-00"),
+        "rg": TextoOpcional(required=False, example="12.345.678-9"),
+        "data_nascimento": TextoOpcional(required=False, example="1990-05-15"),
+        "sexo": TextoOpcional(required=False, example="M", enum=["M", "F", "Outro"]),
+        "telefone": TextoOpcional(required=False, example="(79) 99999-8888"),
+        "email": TextoOpcional(required=False, example="joao.silva@email.com"),
+        "endereco": TextoOpcional(required=False, example="Rua das Flores, 123, Centro"),
+        "alergia": TextoOpcional(required=False, example="Dipirona, Penicilina"),
+        "observacoes": TextoOpcional(required=False, example="Cliente prefere contato via WhatsApp"),
     },
 )
 

@@ -2,6 +2,7 @@ from flask import request
 from flask_restx import Namespace, Resource, fields
 from flask_jwt_extended import jwt_required
 
+from app.routes.campos import NumeroOpcional, TextoOpcional
 from app.services.manipulacao_service import ManipulacaoService
 
 ns = Namespace("manipulacoes", description="Gestão de pedidos de manipulação de medicamentos")
@@ -13,23 +14,23 @@ modelo_manipulacao_entrada = ns.model(
     {
         "cliente_id": fields.Integer(required=True, example=1, description="ID do cliente"),
         "formula": fields.String(required=True, example="Minoxidil 5%, Biotina 2mg, Loção qsp 60ml", description="Fórmula/Composição"),
-        "data": fields.String(required=False, example="2026-10-23", description="Data do pedido (AAAA-MM-DD). Padrão hoje"),
-        "prazo_entrega": fields.String(required=False, example="2026-10-26", description="Data prevista de entrega"),
-        "valor": fields.Float(required=False, example=85.50, description="Valor cobrado"),
+        "data": TextoOpcional(required=False, example="2026-10-23", description="Data do pedido (AAAA-MM-DD). Padrão hoje"),
+        "prazo_entrega": TextoOpcional(required=False, example="2026-10-26", description="Data prevista de entrega"),
+        "valor": NumeroOpcional(required=False, example=85.50, description="Valor cobrado"),
         "forma_pagamento": fields.String(required=False, enum=FORMAS_PAGAMENTO, example="PIX"),
-        "observacoes": fields.String(required=False, example="Uso tópico, aplicar à noite"),
+        "observacoes": TextoOpcional(required=False, example="Uso tópico, aplicar à noite"),
     },
 )
 
 modelo_manipulacao_edicao = ns.model(
     "ManipulacaoEdicao",
     {
-        "formula": fields.String(required=False, example="Minoxidil 5%, Biotina 2mg"),
-        "data": fields.String(required=False, example="2026-10-23"),
-        "prazo_entrega": fields.String(required=False, example="2026-10-26"),
-        "valor": fields.Float(required=False, example=85.50),
+        "formula": TextoOpcional(required=False, example="Minoxidil 5%, Biotina 2mg"),
+        "data": TextoOpcional(required=False, example="2026-10-23"),
+        "prazo_entrega": TextoOpcional(required=False, example="2026-10-26"),
+        "valor": NumeroOpcional(required=False, example=85.50),
         "forma_pagamento": fields.String(required=False, enum=FORMAS_PAGAMENTO, example="PIX"),
-        "observacoes": fields.String(required=False, example="Uso tópico, aplicar à noite"),
+        "observacoes": TextoOpcional(required=False, example="Uso tópico, aplicar à noite"),
     },
 )
 

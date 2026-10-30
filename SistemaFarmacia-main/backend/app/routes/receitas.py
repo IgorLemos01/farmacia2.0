@@ -2,6 +2,7 @@ from flask import request
 from flask_restx import Namespace, Resource, fields
 from flask_jwt_extended import jwt_required
 
+from app.routes.campos import NumeroOpcional, TextoOpcional
 from app.services.receita_service import ReceitaService
 
 ns = Namespace("receitas", description="Gestão de receitas médicas vinculadas aos clientes")
@@ -10,7 +11,7 @@ modelo_receita_entrada = ns.model(
     "ReceitaEntrada",
     {
         "cliente_id": fields.Integer(required=True, example=1, description="ID do paciente/cliente"),
-        "data_venda": fields.String(required=False, example="2026-10-23", description="Data do atendimento/venda (AAAA-MM-DD)"),
+        "data_venda": TextoOpcional(required=False, example="2026-10-23", description="Data do atendimento/venda (AAAA-MM-DD)"),
         "medico_prescritor": fields.String(required=True, example="Dr. Carlos Eduardo (CRM-SE 12345)", description="Médico prescritor"),
         "medicamentos": fields.String(required=True, example="Amoxicilina 500mg (21 caps), Paracetamol 750mg (10 cpr)", description="Medicamentos prescritos"),
     },
@@ -19,9 +20,9 @@ modelo_receita_entrada = ns.model(
 modelo_receita_edicao = ns.model(
     "ReceitaEdicao",
     {
-        "data_venda": fields.String(required=False, example="2026-10-23"),
-        "medico_prescritor": fields.String(required=False, example="Dr. Carlos Eduardo (CRM-SE 12345)"),
-        "medicamentos": fields.String(required=False, example="Amoxicilina 500mg"),
+        "data_venda": TextoOpcional(required=False, example="2026-10-23"),
+        "medico_prescritor": TextoOpcional(required=False, example="Dr. Carlos Eduardo (CRM-SE 12345)"),
+        "medicamentos": TextoOpcional(required=False, example="Amoxicilina 500mg"),
     },
 )
 

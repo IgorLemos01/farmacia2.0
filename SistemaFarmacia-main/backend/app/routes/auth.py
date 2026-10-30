@@ -1,7 +1,10 @@
 # pyrefly: ignore[missing-import]
 from flask_restx import Namespace, Resource, fields
 # pyrefly: ignore[missing-import]
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required, verify_jwt_in_request
+
+from app.extensions import db
+from app.models.usuario import Usuario
 
 from app.services.auth_service import AuthService
 
@@ -39,10 +42,26 @@ modelo_login = ns.model(
 @ns.route("/cadastro")
 class Cadastro(Resource):
     @ns.expect(modelo_cadastro, validate=True)
-    @ns.doc(description="Cria um novo usuário no sistema. Perfis disponíveis: 'admin' ou 'atendente'.")
+    @ns.doc(
+        description=(
+            "Cria um novo usuário. Requer token de um **admin**. "
+            "Exceção: se ainda não existe nenhum usuário, o primeiro cadastro é liberado "
+            "e vira admin automaticamente (configuração inicial do sistema)."
+        ),
+        security="Bearer",
+    )
     def post(self):
-        """Cadastrar novo usuário"""
+        """Cadastrar novo usuário (somente admin)"""
         dados = ns.payload
+        primeiro_usuario = db.session.query(Usuario.id).first() is None
+
+        if not primeiro_usuario:
+            verify_jwt_in_request(optional=True)
+            claims = get_jwt()
+            if not claims:
+                ns.abort(401, "Faça login como administrador para cadastrar usuários.")
+            if claims.get("perfil") != "admin":
+                ns.abort(403, "Apenas administradores podem cadastrar usuários.")
 
         nome = dados.get("nome", "").strip()
         email = dados.get("email", "").strip()
@@ -56,6 +75,8 @@ class Cadastro(Resource):
             ns.abort(400, "Senha deve ter pelo menos 6 caracteres.")
         if perfil not in ("admin", "atendente"):
             ns.abort(400, "Perfil inválido. Use 'admin' ou 'atendente'.")
+        if primeiro_usuario:
+            perfil = "admin"
 
         try:
             usuario = AuthService.cadastrar(nome, email, senha, perfil)
@@ -92,10 +113,7 @@ class Me(Resource):
     )
     def get(self):
         """Ver meu perfil (requer token)"""
-        from app.models.usuario import Usuario
-
-        usuario_id = get_jwt_identity()
-        usuario = Usuario.query.get(usuario_id)
+        usuario = db.session.get(Usuario, int(get_jwt_identity()))
 
         if not usuario:
             ns.abort(404, "Usuário não encontrado.")

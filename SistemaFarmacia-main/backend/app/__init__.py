@@ -1,3 +1,5 @@
+import secrets
+
 from flask import Flask
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
@@ -7,20 +9,40 @@ from app.config import Config
 from app.extensions import db
 
 
-def create_app() -> Flask:
+def create_app(config_extra: dict | None = None) -> Flask:
     """
     Factory function que cria e configura a instância Flask.
 
     Usar uma factory facilita os testes (cada teste pode criar
-    uma app isolada com configurações diferentes).
+    uma app isolada com configurações diferentes via `config_extra`).
     """
     app = Flask(__name__)
     app.config.from_object(Config)
+    if config_extra:
+        app.config.update(config_extra)
+
+    if not app.config.get("JWT_SECRET_KEY"):
+        if not app.config["DEBUG"]:
+            raise RuntimeError(
+                "JWT_SECRET_KEY não definida. Configure-a no .env antes de rodar em produção."
+            )
+        # Em desenvolvimento, gera um segredo temporário (os tokens deixam de
+        # valer quando o servidor reinicia).
+        app.config["JWT_SECRET_KEY"] = secrets.token_hex(32)
+        app.logger.warning("JWT_SECRET_KEY não definida; usando segredo temporário de desenvolvimento.")
 
     # --- Extensões ---
-    CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
+    # A API usa token no cabeçalho Authorization (sem cookies), então não
+    # precisa de supports_credentials.
+    CORS(app, resources={r"/api/*": {"origins": app.config["CORS_ORIGINS"]}})
     db.init_app(app)
-    JWTManager(app)
+    jwt = JWTManager(app)
+
+    # Token malformado ou com assinatura inválida: responde 401 (o padrão é 422),
+    # para que o frontend trate como sessão encerrada e peça login de novo.
+    @jwt.invalid_token_loader
+    def _token_invalido(motivo):
+        return {"msg": "Sessão inválida. Faça login novamente."}, 401
 
     # --- API REST com Swagger embutido ---
     api = Api(

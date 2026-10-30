@@ -1,5 +1,6 @@
 import datetime
 from app.extensions import db
+from app.utils import agora_utc
 
 
 class Exame(db.Model):
@@ -28,7 +29,7 @@ class Exame(db.Model):
         nullable=True,
     )
     observacoes = db.Column(db.Text, nullable=True)
-    criado_em = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+    criado_em = db.Column(db.DateTime, nullable=False, default=agora_utc)
 
     # Relacionamento
     cliente = db.relationship("Cliente", back_populates="exames")

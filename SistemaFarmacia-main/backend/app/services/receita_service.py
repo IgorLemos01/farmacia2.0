@@ -2,6 +2,7 @@ import datetime
 from app.extensions import db
 from app.models.receita import Receita
 from app.models.cliente import Cliente
+from app.utils import parse_data
 
 
 class ReceitaService:
@@ -25,7 +26,7 @@ class ReceitaService:
 
     @staticmethod
     def obter_por_id(receita_id: int) -> Receita:
-        return Receita.query.get(receita_id)
+        return db.session.get(Receita, receita_id)
 
     @staticmethod
     def cadastrar(dados: dict) -> Receita:
@@ -33,7 +34,7 @@ class ReceitaService:
         if not cliente_id:
             raise ValueError("O ID do cliente (cliente_id) é obrigatório.")
 
-        cliente = Cliente.query.get(cliente_id)
+        cliente = db.session.get(Cliente, cliente_id)
         if not cliente:
             raise ValueError(f"Cliente com ID {cliente_id} não encontrado.")
 
@@ -45,12 +46,7 @@ class ReceitaService:
         if not medicamentos:
             raise ValueError("A descrição dos medicamentos é obrigatória.")
 
-        data_venda = dados.get("data_venda")
-        if data_venda:
-            if isinstance(data_venda, str):
-                data_venda = datetime.date.fromisoformat(data_venda)
-        else:
-            data_venda = datetime.date.today()
+        data_venda = parse_data(dados.get("data_venda"), "Data da venda") or datetime.date.today()
 
         receita = Receita(
             cliente_id=cliente_id,
@@ -65,7 +61,7 @@ class ReceitaService:
 
     @staticmethod
     def atualizar(receita_id: int, dados: dict) -> Receita:
-        receita = Receita.query.get(receita_id)
+        receita = db.session.get(Receita, receita_id)
         if not receita:
             raise ValueError("Receita não encontrada.")
 
@@ -74,15 +70,14 @@ class ReceitaService:
         if "medicamentos" in dados:
             receita.medicamentos = dados["medicamentos"].strip()
         if "data_venda" in dados and dados["data_venda"]:
-            val = dados["data_venda"]
-            receita.data_venda = datetime.date.fromisoformat(val) if isinstance(val, str) else val
+            receita.data_venda = parse_data(dados["data_venda"], "Data da venda")
 
         db.session.commit()
         return receita
 
     @staticmethod
     def deletar(receita_id: int):
-        receita = Receita.query.get(receita_id)
+        receita = db.session.get(Receita, receita_id)
         if not receita:
             raise ValueError("Receita não encontrada.")
         db.session.delete(receita)

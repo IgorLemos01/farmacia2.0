@@ -1,5 +1,6 @@
 import datetime
 from app.extensions import db
+from app.utils import agora_utc
 
 
 class Receita(db.Model):
@@ -21,7 +22,7 @@ class Receita(db.Model):
     data_venda = db.Column(db.Date, nullable=False, default=datetime.date.today)
     medico_prescritor = db.Column(db.String(200), nullable=False)
     medicamentos = db.Column(db.Text, nullable=False)
-    criado_em = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+    criado_em = db.Column(db.DateTime, nullable=False, default=agora_utc)
 
     # Relacionamento
     cliente = db.relationship("Cliente", back_populates="receitas")

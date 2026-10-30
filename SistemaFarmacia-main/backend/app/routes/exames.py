@@ -2,6 +2,7 @@ from flask import request
 from flask_restx import Namespace, Resource, fields
 from flask_jwt_extended import jwt_required
 
+from app.routes.campos import NumeroOpcional, TextoOpcional
 from app.services.exame_service import ExameService
 
 ns = Namespace("exames", description="Gestão de exames e procedimentos rápidos da farmácia")
@@ -13,21 +14,21 @@ modelo_exame_entrada = ns.model(
     {
         "cliente_id": fields.Integer(required=True, example=1, description="ID do cliente"),
         "tipo_exame": fields.String(required=True, example="Glicemia Capilar / Perfil Lipídico", description="Tipo de exame"),
-        "data": fields.String(required=False, example="2026-10-23", description="Data de realização (AAAA-MM-DD)"),
-        "valor": fields.Float(required=False, example=25.00, description="Valor cobrado"),
+        "data": TextoOpcional(required=False, example="2026-10-23", description="Data de realização (AAAA-MM-DD)"),
+        "valor": NumeroOpcional(required=False, example=25.00, description="Valor cobrado"),
         "forma_pagamento": fields.String(required=False, enum=FORMAS_PAGAMENTO, example="PIX"),
-        "observacoes": fields.String(required=False, example="Resultado: Glicemia em jejum 92 mg/dL. Normal."),
+        "observacoes": TextoOpcional(required=False, example="Resultado: Glicemia em jejum 92 mg/dL. Normal."),
     },
 )
 
 modelo_exame_edicao = ns.model(
     "ExameEdicao",
     {
-        "tipo_exame": fields.String(required=False, example="Glicemia Capilar"),
-        "data": fields.String(required=False, example="2026-10-23"),
-        "valor": fields.Float(required=False, example=25.00),
+        "tipo_exame": TextoOpcional(required=False, example="Glicemia Capilar"),
+        "data": TextoOpcional(required=False, example="2026-10-23"),
+        "valor": NumeroOpcional(required=False, example=25.00),
         "forma_pagamento": fields.String(required=False, enum=FORMAS_PAGAMENTO, example="PIX"),
-        "observacoes": fields.String(required=False, example="Resultado normal."),
+        "observacoes": TextoOpcional(required=False, example="Resultado normal."),
     },
 )
 

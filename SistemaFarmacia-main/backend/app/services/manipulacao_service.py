@@ -2,6 +2,7 @@ import datetime
 from app.extensions import db
 from app.models.manipulacao import Manipulacao
 from app.models.cliente import Cliente
+from app.utils import parse_data
 
 
 class ManipulacaoService:
@@ -25,7 +26,7 @@ class ManipulacaoService:
 
     @staticmethod
     def obter_por_id(manipulacao_id: int) -> Manipulacao:
-        return Manipulacao.query.get(manipulacao_id)
+        return db.session.get(Manipulacao, manipulacao_id)
 
     @staticmethod
     def cadastrar(dados: dict) -> Manipulacao:
@@ -33,7 +34,7 @@ class ManipulacaoService:
         if not cliente_id:
             raise ValueError("O ID do cliente (cliente_id) é obrigatório.")
 
-        cliente = Cliente.query.get(cliente_id)
+        cliente = db.session.get(Cliente, cliente_id)
         if not cliente:
             raise ValueError(f"Cliente com ID {cliente_id} não encontrado.")
 
@@ -41,16 +42,8 @@ class ManipulacaoService:
         if not formula:
             raise ValueError("A fórmula/composição do medicamento é obrigatória.")
 
-        data_pedido = dados.get("data")
-        if data_pedido:
-            if isinstance(data_pedido, str):
-                data_pedido = datetime.date.fromisoformat(data_pedido)
-        else:
-            data_pedido = datetime.date.today()
-
-        prazo = dados.get("prazo_entrega")
-        if prazo and isinstance(prazo, str):
-            prazo = datetime.date.fromisoformat(prazo)
+        data_pedido = parse_data(dados.get("data"), "Data do pedido") or datetime.date.today()
+        prazo = parse_data(dados.get("prazo_entrega"), "Prazo de entrega")
 
         manipulacao = Manipulacao(
             cliente_id=cliente_id,
@@ -68,18 +61,16 @@ class ManipulacaoService:
 
     @staticmethod
     def atualizar(manipulacao_id: int, dados: dict) -> Manipulacao:
-        manipulacao = Manipulacao.query.get(manipulacao_id)
+        manipulacao = db.session.get(Manipulacao, manipulacao_id)
         if not manipulacao:
             raise ValueError("Pedido de manipulação não encontrado.")
 
         if "formula" in dados:
             manipulacao.formula = dados["formula"].strip()
         if "data" in dados and dados["data"]:
-            val = dados["data"]
-            manipulacao.data = datetime.date.fromisoformat(val) if isinstance(val, str) else val
+            manipulacao.data = parse_data(dados["data"], "Data do pedido")
         if "prazo_entrega" in dados:
-            val = dados["prazo_entrega"]
-            manipulacao.prazo_entrega = datetime.date.fromisoformat(val) if isinstance(val, str) else val
+            manipulacao.prazo_entrega = parse_data(dados["prazo_entrega"], "Prazo de entrega")
         if "valor" in dados:
             manipulacao.valor = dados["valor"]
         if "forma_pagamento" in dados:
@@ -92,7 +83,7 @@ class ManipulacaoService:
 
     @staticmethod
     def deletar(manipulacao_id: int):
-        manipulacao = Manipulacao.query.get(manipulacao_id)
+        manipulacao = db.session.get(Manipulacao, manipulacao_id)
         if not manipulacao:
             raise ValueError("Pedido de manipulação não encontrado.")
         db.session.delete(manipulacao)

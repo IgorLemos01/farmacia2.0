@@ -1,5 +1,5 @@
-import datetime
 from app.extensions import db
+from app.utils import agora_utc
 
 
 class Usuario(db.Model):
@@ -24,7 +24,7 @@ class Usuario(db.Model):
     senha_hash = db.Column(db.String(255), nullable=False)
     perfil = db.Column(db.Enum("admin", "atendente"), nullable=False, default="atendente")
     ativo = db.Column(db.Boolean, nullable=False, default=True)
-    criado_em = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+    criado_em = db.Column(db.DateTime, nullable=False, default=agora_utc)
 
     def to_dict(self):
         """Retorna representação segura do usuário (sem a senha)."""
