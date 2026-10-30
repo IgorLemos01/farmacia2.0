@@ -97,6 +97,7 @@ Variáveis principais (detalhes no `.env.example`):
 - `DB_TYPE`, `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_TRUSTED_CONNECTION`
 - `JWT_SECRET_KEY` — **obrigatória em produção** (a API não sobe sem ela). Em desenvolvimento,
   se vazia, é gerado um segredo temporário.
+- `JWT_EXPIRES_HOURS` — duração do login (padrão 8 h).
 - `CORS_ORIGINS` — sites autorizados a chamar a API (inclua o domínio do frontend).
 
 ### 4. Executar o servidor
@@ -112,7 +113,13 @@ cd backend && python run.py
 ### 5. Criar o primeiro usuário (administrador)
 
 Com o banco vazio, o **primeiro** `POST /api/auth/cadastro` não exige login e cria a conta
-como `admin`. A partir daí, só um admin logado consegue cadastrar novos usuários.
+como `admin`. A partir daí, só um admin logado cadastra novos usuários, pela tela
+**Configurações** do sistema (ou pelo Swagger).
+
+**Gestão de usuários** (somente admin, perfil conferido no banco a cada chamada):
+- Usuários não são excluídos: desative o acesso. A desativação vale **na hora**, mesmo para
+  quem está logado (o token passa a responder 401).
+- O admin não pode rebaixar nem desativar a si mesmo (sempre sobra um admin ativo).
 
 ### 6. Testes
 
@@ -141,3 +148,16 @@ Você verá a interface do Swagger com todos os endpoints disponíveis para test
 | POST   | /api/auth/cadastro       | Cria usuário — exige token de admin (exceto o primeiro usuário)  |
 | POST   | /api/auth/login          | Retorna token JWT                                                |
 | GET    | /api/auth/me             | Dados do usuário logado (requer token)                           |
+
+## Endpoints de Usuários (somente admin)
+
+| Método | Rota                | Descrição                                                    |
+|--------|---------------------|--------------------------------------------------------------|
+| GET    | /api/usuarios       | Lista os usuários                                            |
+| PUT    | /api/usuarios/{id}  | Altera nome, perfil, ativo (desativar) ou redefine a senha   |
+
+## Editar e excluir registros
+
+Clientes, manipulações, exames e receitas têm `PUT` e `DELETE` na API e botões de editar/excluir
+na tela. O paciente de um registro não pode ser trocado. Cliente com manipulações, exames ou
+receitas vinculados não pode ser excluído.
