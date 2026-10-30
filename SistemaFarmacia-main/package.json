@@ -7,6 +7,8 @@
     "dev:frontend": "npm run dev --prefix frontend",
     "dev:backend": "cd backend && python run.py",
     "build": "npm run build --prefix frontend",
-    "preview": "npm run preview --prefix frontend"
+    "preview": "npm run preview --prefix frontend",
+    "test:frontend": "npm test --prefix frontend",
+    "test:backend": "cd backend && python -m pytest"
   }
 }

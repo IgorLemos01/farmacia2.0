@@ -32,34 +32,56 @@ npm install --prefix frontend
 # Executar servidor local (http://localhost:5173)
 npm run dev:frontend
 
+# Testes (vitest)
+npm test --prefix frontend
+
 # Build de produção
 npm run build
 ```
+
+### Modo API x modo demonstração
+
+- Com `VITE_API_URL` definida (`frontend/.env` ou variável na Vercel), o sistema usa a API
+  real e exige login. Erros da API aparecem na tela — não há fallback para dados fictícios.
+- Sem `VITE_API_URL`, o sistema roda em **modo demonstração**: dados fictícios guardados só
+  no navegador, sem login, com o aviso "Modo demonstração" no topo.
+- Ao publicar a API, adicione o domínio dela em `connect-src` do `Content-Security-Policy`
+  no `vercel.json` (hoje só `'self'` é permitido).
+- Todo dado vindo do usuário/banco deve passar por `escapeHtml` (`src/js/utils.js`) antes de
+  entrar em templates HTML.
 
 ---
 
 ## Backend — API REST
 
-**Tecnologia**: Python 3.11+ · Flask · SQLAlchemy · MySQL · JWT
+**Tecnologia**: Python 3.11+ · Flask · SQLAlchemy · SQL Server (padrão) ou MySQL · JWT
 
 ### 1. Pré-requisitos
 - Python 3.11 ou superior instalado.
-- MySQL rodando localmente (ou via Docker).
-- Banco de dados `farmacia_couto` criado no MySQL.
+- **SQL Server** (padrão, com ODBC Driver 18) **ou MySQL**, com o banco `farmacia_couto` criado.
+  O tipo é escolhido por `DB_TYPE` no `.env` (`mssql` ou `mysql`).
+- As tabelas são criadas automaticamente na primeira execução (`db.create_all()`).
+  Os scripts em `backend/db/` (`schema_sqlserver.sql` e `schema.sql` para MySQL) são
+  alternativas para criação manual.
 
 ### 2. Instalar dependências Python
 
 ```bash
 cd backend
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-dev.txt
 ```
 
 ### 3. Configurar variáveis de ambiente
 
 ```bash
 cp backend/.env.example backend/.env
-# Edite o arquivo .env com as credenciais do seu MySQL
 ```
+
+Variáveis principais (detalhes no `.env.example`):
+- `DB_TYPE`, `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_TRUSTED_CONNECTION`
+- `JWT_SECRET_KEY` — **obrigatória em produção** (a API não sobe sem ela). Em desenvolvimento,
+  se vazia, é gerado um segredo temporário.
+- `CORS_ORIGINS` — sites autorizados a chamar a API (inclua o domínio do frontend).
 
 ### 4. Executar o servidor
 
@@ -71,7 +93,20 @@ npm run dev:backend
 cd backend && python run.py
 ```
 
-### 5. Testar os endpoints — Swagger UI
+### 5. Criar o primeiro usuário (administrador)
+
+Com o banco vazio, o **primeiro** `POST /api/auth/cadastro` não exige login e cria a conta
+como `admin`. A partir daí, só um admin logado consegue cadastrar novos usuários.
+
+### 6. Testes
+
+```bash
+cd backend && python -m pytest
+```
+
+Os testes usam SQLite em memória — não precisam do SQL Server/MySQL.
+
+### 7. Testar os endpoints — Swagger UI
 
 Após o servidor iniciar, acesse no navegador:
 
@@ -85,8 +120,8 @@ Você verá a interface do Swagger com todos os endpoints disponíveis para test
 
 ## Endpoints de Autenticação
 
-| Método | Rota                     | Descrição                              |
-|--------|--------------------------|----------------------------------------|
-| POST   | /api/auth/cadastro       | Cria um novo usuário                   |
-| POST   | /api/auth/login          | Retorna token JWT                      |
-| GET    | /api/auth/me             | Dados do usuário logado (requer token) |
+| Método | Rota                     | Descrição                                                        |
+|--------|--------------------------|------------------------------------------------------------------|
+| POST   | /api/auth/cadastro       | Cria usuário — exige token de admin (exceto o primeiro usuário)  |
+| POST   | /api/auth/login          | Retorna token JWT                                                |
+| GET    | /api/auth/me             | Dados do usuário logado (requer token)                           |
