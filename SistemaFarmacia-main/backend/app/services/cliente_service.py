@@ -3,7 +3,7 @@ from sqlalchemy import or_
 
 from app.extensions import db
 from app.models.cliente import Cliente
-from app.utils import parse_data
+from app.utils import parse_data, texto_obrigatorio
 
 
 class ClienteService:
@@ -101,9 +101,9 @@ class ClienteService:
             cliente.cpf = novo_cpf
 
         if "nome" in dados:
-            cliente.nome = dados["nome"].strip()
+            cliente.nome = texto_obrigatorio(dados["nome"], "Nome")
         if "rg" in dados:
-            cliente.rg = dados["rg"].strip()
+            cliente.rg = texto_obrigatorio(dados["rg"], "RG")
         if "data_nascimento" in dados:
             data_nasc = parse_data(dados["data_nascimento"], "Data de nascimento")
             if not data_nasc:
@@ -114,11 +114,11 @@ class ClienteService:
                 raise ValueError("Sexo inválido. Utilize 'M', 'F' ou 'Outro'.")
             cliente.sexo = dados["sexo"]
         if "telefone" in dados:
-            cliente.telefone = dados["telefone"].strip()
+            cliente.telefone = texto_obrigatorio(dados["telefone"], "Telefone")
         if "email" in dados:
-            cliente.email = dados["email"].strip().lower()
+            cliente.email = texto_obrigatorio(dados["email"], "E-mail").lower()
         if "endereco" in dados:
-            cliente.endereco = dados["endereco"].strip()
+            cliente.endereco = texto_obrigatorio(dados["endereco"], "Endereço")
         if "alergia" in dados:
             cliente.alergia = dados.get("alergia")
         if "observacoes" in dados:

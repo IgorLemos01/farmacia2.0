@@ -2,7 +2,7 @@ import datetime
 from app.extensions import db
 from app.models.manipulacao import Manipulacao
 from app.models.cliente import Cliente
-from app.utils import parse_data
+from app.utils import parse_data, texto_obrigatorio
 
 
 class ManipulacaoService:
@@ -66,7 +66,7 @@ class ManipulacaoService:
             raise ValueError("Pedido de manipulação não encontrado.")
 
         if "formula" in dados:
-            manipulacao.formula = dados["formula"].strip()
+            manipulacao.formula = texto_obrigatorio(dados["formula"], "Fórmula")
         if "data" in dados and dados["data"]:
             manipulacao.data = parse_data(dados["data"], "Data do pedido")
         if "prazo_entrega" in dados:

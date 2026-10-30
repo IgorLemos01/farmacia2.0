@@ -1,3 +1,4 @@
+import datetime
 import os
 import urllib.parse
 from dotenv import load_dotenv
@@ -42,6 +43,9 @@ class Config:
     # Sem valor padrão: um segredo conhecido permitiria forjar tokens.
     # A validação acontece em create_app().
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "")
+    # Duração do login. O padrão da biblioteca (15 min) obrigaria a entrar de novo
+    # várias vezes por turno; 8 h cobre um dia de trabalho.
+    JWT_ACCESS_TOKEN_EXPIRES = datetime.timedelta(hours=float(os.getenv("JWT_EXPIRES_HOURS") or 8))
 
     # --- CORS ---
     # Origens (separadas por vírgula) autorizadas a chamar a API.

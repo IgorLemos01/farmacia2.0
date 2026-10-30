@@ -53,3 +53,23 @@ def test_exame_com_opcionais_null(client, auth, cliente_id):
         "cliente_id": cliente_id, "tipo_exame": "X", "valor": None, "observacoes": None,
     }, headers=auth)
     assert resp.status_code == 201, resp.get_json()
+
+
+@pytest.mark.parametrize("rota,payload,chave,campo", [
+    ("/api/manipulacoes", {"formula": "Biotina"}, "manipulacao", "formula"),
+    ("/api/exames", {"tipo_exame": "Glicemia"}, "exame", "tipo_exame"),
+    ("/api/receitas", {"medico_prescritor": "Dr. X", "medicamentos": "Dipirona"}, "receita", "medicamentos"),
+])
+def test_editar_e_excluir(client, auth, cliente_id, rota, payload, chave, campo):
+    criado = client.post(rota, json={"cliente_id": cliente_id, **payload}, headers=auth).get_json()[chave]
+
+    resp = client.put(f"{rota}/{criado['id']}", json={campo: "Valor Novo"}, headers=auth)
+    assert resp.status_code == 200
+    assert resp.get_json()[chave][campo] == "Valor Novo"
+
+    # campo obrigatório vazio ou nulo é recusado (antes: erro 500)
+    for vazio in ("", "   ", None):
+        assert client.put(f"{rota}/{criado['id']}", json={campo: vazio}, headers=auth).status_code == 400
+
+    assert client.delete(f"{rota}/{criado['id']}", headers=auth).status_code == 200
+    assert client.get(f"{rota}/{criado['id']}", headers=auth).status_code == 404

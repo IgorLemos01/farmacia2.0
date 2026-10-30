@@ -6,6 +6,14 @@ def agora_utc() -> datetime.datetime:
     return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
 
 
+def texto_obrigatorio(valor, rotulo: str) -> str:
+    """Devolve o texto sem espaços nas pontas; levanta ValueError se vier vazio ou nulo."""
+    texto = (valor or "").strip() if isinstance(valor, str) or valor is None else ""
+    if not texto:
+        raise ValueError(f"O campo '{rotulo}' é obrigatório.")
+    return texto
+
+
 def parse_data(valor, campo: str = "Data"):
     """
     Converte 'AAAA-MM-DD' em datetime.date.

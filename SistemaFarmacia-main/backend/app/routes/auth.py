@@ -1,7 +1,7 @@
 # pyrefly: ignore[missing-import]
 from flask_restx import Namespace, Resource, fields
 # pyrefly: ignore[missing-import]
-from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required, verify_jwt_in_request
+from flask_jwt_extended import get_jwt_identity, jwt_required, verify_jwt_in_request
 
 from app.extensions import db
 from app.models.usuario import Usuario
@@ -57,10 +57,11 @@ class Cadastro(Resource):
 
         if not primeiro_usuario:
             verify_jwt_in_request(optional=True)
-            claims = get_jwt()
-            if not claims:
+            identidade = get_jwt_identity()
+            if identidade is None:
                 ns.abort(401, "Faça login como administrador para cadastrar usuários.")
-            if claims.get("perfil") != "admin":
+            ator = db.session.get(Usuario, int(identidade))
+            if not ator or not ator.ativo or ator.perfil != "admin":
                 ns.abort(403, "Apenas administradores podem cadastrar usuários.")
 
         nome = dados.get("nome", "").strip()

@@ -44,6 +44,19 @@ def create_app(config_extra: dict | None = None) -> Flask:
     def _token_invalido(motivo):
         return {"msg": "Sessão inválida. Faça login novamente."}, 401
 
+    # Usuário desativado (ou removido) perde o acesso imediatamente, mesmo com um
+    # token ainda dentro do prazo de validade.
+    @jwt.token_in_blocklist_loader
+    def _usuario_sem_acesso(jwt_header, jwt_payload):
+        from app.models.usuario import Usuario
+
+        usuario = db.session.get(Usuario, int(jwt_payload["sub"]))
+        return usuario is None or not usuario.ativo
+
+    @jwt.revoked_token_loader
+    def _token_revogado(jwt_header, jwt_payload):
+        return {"msg": "Usuário desativado ou removido. Faça login novamente."}, 401
+
     # --- API REST com Swagger embutido ---
     api = Api(
         app,
@@ -68,12 +81,14 @@ def create_app(config_extra: dict | None = None) -> Flask:
     from app.routes.manipulacoes import ns as manipulacoes_ns
     from app.routes.exames import ns as exames_ns
     from app.routes.receitas import ns as receitas_ns
+    from app.routes.usuarios import ns as usuarios_ns
 
     api.add_namespace(auth_ns)
     api.add_namespace(clientes_ns)
     api.add_namespace(manipulacoes_ns)
     api.add_namespace(exames_ns)
     api.add_namespace(receitas_ns)
+    api.add_namespace(usuarios_ns)
 
     # --- Cria as tabelas no banco se ainda não existirem ---
     with app.app_context():

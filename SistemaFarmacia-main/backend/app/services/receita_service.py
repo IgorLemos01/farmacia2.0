@@ -2,7 +2,7 @@ import datetime
 from app.extensions import db
 from app.models.receita import Receita
 from app.models.cliente import Cliente
-from app.utils import parse_data
+from app.utils import parse_data, texto_obrigatorio
 
 
 class ReceitaService:
@@ -66,9 +66,9 @@ class ReceitaService:
             raise ValueError("Receita não encontrada.")
 
         if "medico_prescritor" in dados:
-            receita.medico_prescritor = dados["medico_prescritor"].strip()
+            receita.medico_prescritor = texto_obrigatorio(dados["medico_prescritor"], "Médico prescritor")
         if "medicamentos" in dados:
-            receita.medicamentos = dados["medicamentos"].strip()
+            receita.medicamentos = texto_obrigatorio(dados["medicamentos"], "Medicamentos")
         if "data_venda" in dados and dados["data_venda"]:
             receita.data_venda = parse_data(dados["data_venda"], "Data da venda")
 

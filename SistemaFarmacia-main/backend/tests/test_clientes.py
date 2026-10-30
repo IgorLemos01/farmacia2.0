@@ -66,3 +66,17 @@ def test_campos_opcionais_aceitam_null(client, auth):
     """O formulário envia null para alergia/observações vazias."""
     c = criar_cliente(client, auth, alergia=None, observacoes=None)
     assert c["alergia"] is None
+
+
+def test_editar_cliente_com_campo_obrigatorio_vazio_retorna_400(client, auth):
+    c = criar_cliente(client, auth)
+    for campo in ("nome", "rg", "telefone", "email", "endereco"):
+        for vazio in ("", None):
+            resp = client.put(f"/api/clientes/{c['id']}", json={campo: vazio}, headers=auth)
+            assert resp.status_code == 400, (campo, vazio)
+
+
+def test_excluir_cliente_sem_historico(client, auth):
+    c = criar_cliente(client, auth)
+    assert client.delete(f"/api/clientes/{c['id']}", headers=auth).status_code == 200
+    assert client.get(f"/api/clientes/{c['id']}", headers=auth).status_code == 404
