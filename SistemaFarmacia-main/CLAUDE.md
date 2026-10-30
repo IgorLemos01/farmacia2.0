@@ -14,7 +14,9 @@ SistemaFarmacia/
 
 - **Envie as alterações direto para a branch `main`** (autorizado pelo dono do repositório).
   Ao terminar uma mudança: verifique o build (`npm run build`), faça o commit e `git push origin HEAD:main`.
-- A hospedagem (Hostinger) é atualizada manualmente: ver "Publicação" abaixo.
+- Toda alteração na `main` publica automaticamente a versão de demonstração no GitHub Pages
+  (`.github/workflows/pages.yml`: roda os testes do frontend, faz o build e publica).
+- A hospedagem definitiva (Hostinger) é atualizada manualmente: ver "Publicação" abaixo.
 
 ---
 
