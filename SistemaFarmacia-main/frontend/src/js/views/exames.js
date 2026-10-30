@@ -3,12 +3,13 @@
 // ============================================================
 
 import { api } from '../api.js';
-import { botoesAcoes, confirmarEExcluir, escapeHtml as esc, hojeISO, ligarAcoes } from '../utils.js';
+import { botoesAcoes, confirmarEExcluir, escapeHtml as esc, formatarMoeda, hojeISO, ligarAcoes } from '../utils.js';
 
 export async function renderExames(container) {
-  const [exames, clientes] = await Promise.all([
+  const [exames, clientes, catalogo] = await Promise.all([
     api.listarExames(),
     api.listarClientes(),
+    api.listarCatalogoExames({ apenasAtivos: true }),
   ]);
 
   container.innerHTML = `
@@ -83,8 +84,13 @@ export async function renderExames(container) {
             </div>
 
             <div class="form-group form-group-full">
-              <label class="form-label">Tipo de Exame / Procedimento <span class="req">*</span></label>
-              <input type="text" class="form-input" id="exame_tipo" required placeholder="Ex: Glicemia Capilar, Pressão Arterial, Teste Rápido COVID..."/>
+              <label class="form-label" for="exame_tipo">Exame <span class="req">*</span></label>
+              <input type="text" class="form-input" id="exame_tipo" list="listaCatalogoExames" autocomplete="off" required
+                     placeholder="Digite para buscar no catálogo…"/>
+              <datalist id="listaCatalogoExames">
+                ${catalogo.map(c => `<option value="${esc(c.nome)}"></option>`).join('')}
+              </datalist>
+              <small id="dicaExame" role="status" style="display: block; margin-top: 6px; font-size: 0.78rem; color: var(--text-muted);"></small>
             </div>
 
             <div class="form-group">
@@ -93,8 +99,8 @@ export async function renderExames(container) {
             </div>
 
             <div class="form-group">
-              <label class="form-label">Valor (R$)</label>
-              <input type="number" step="0.01" class="form-input" id="exame_valor" placeholder="0.00"/>
+              <label class="form-label" for="exame_valor">Valor (do catálogo)</label>
+              <input type="text" class="form-input" id="exame_valor" readonly tabindex="-1" placeholder="—"/>
             </div>
 
             <div class="form-group">
@@ -125,22 +131,46 @@ export async function renderExames(container) {
   const modal = document.getElementById('modalNovoExame');
   const form = document.getElementById('formNovoExame');
   const selectCliente = document.getElementById('exame_cliente_id');
+  const campoTipo = document.getElementById('exame_tipo');
+  const campoValor = document.getElementById('exame_valor');
+  const dica = document.getElementById('dicaExame');
+  const btnSalvar = document.getElementById('btnSalvarExame');
   let editando = null;
+
+  // O exame só pode ser escolhido no catálogo: o nome digitado precisa existir lá.
+  const normalizar = texto => texto.replace(/\s+/g, ' ').trim().toLowerCase();
+  const porNome = new Map(catalogo.map(c => [normalizar(c.nome), c]));
+  const escolhido = () => porNome.get(normalizar(campoTipo.value));
+
+  campoTipo.addEventListener('input', () => {
+    if (editando) return;
+    const item = escolhido();
+    campoValor.value = item ? formatarMoeda(item.valor) : '';
+    dica.textContent = campoTipo.value.trim() && !item ? 'Escolha um exame da lista do catálogo.' : '';
+  });
 
   function abrirModal(item = null) {
     editando = item;
     form.reset();
     document.getElementById('tituloModalExame').textContent = item ? 'Editar Exame / Teste Clínico' : 'Registrar Exame / Teste Clínico';
-    document.getElementById('btnSalvarExame').textContent = item ? 'Salvar Alterações' : 'Salvar Exame';
-    // O paciente de um exame já registrado não pode ser trocado.
+    btnSalvar.textContent = item ? 'Salvar Alterações' : 'Salvar Exame';
+    // O paciente, o exame e o valor de um registro já feito não mudam.
     selectCliente.disabled = !!item;
+    campoTipo.readOnly = !!item;
+    campoValor.value = '';
+    dica.textContent = '';
+    btnSalvar.disabled = false;
     if (item) {
       selectCliente.value = String(item.cliente_id);
-      document.getElementById('exame_tipo').value = item.tipo_exame || '';
+      campoTipo.value = item.tipo_exame || '';
+      campoValor.value = item.valor != null ? formatarMoeda(item.valor) : '';
       document.getElementById('exame_data').value = item.data || '';
-      document.getElementById('exame_valor').value = item.valor ?? '';
       document.getElementById('exame_pagamento').value = item.forma_pagamento || 'PIX';
       document.getElementById('exame_obs').value = item.observacoes || '';
+      dica.textContent = 'O exame e o valor não podem ser alterados. Para trocar, exclua este registro e cadastre de novo.';
+    } else if (!catalogo.length) {
+      btnSalvar.disabled = true;
+      dica.textContent = 'O catálogo está vazio. Peça a um administrador para cadastrar os exames em Configurações → Catálogo de Exames.';
     }
     modal.classList.add('active');
   }
@@ -163,13 +193,18 @@ export async function renderExames(container) {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const payload = {
-      tipo_exame: document.getElementById('exame_tipo').value.trim(),
       data: document.getElementById('exame_data').value,
-      valor: parseFloat(document.getElementById('exame_valor').value) || 0,
       forma_pagamento: document.getElementById('exame_pagamento').value,
       observacoes: document.getElementById('exame_obs').value.trim() || null,
     };
     if (!editando) {
+      const item = escolhido();
+      if (!item) {
+        alert('Escolha um exame da lista do catálogo.');
+        campoTipo.focus();
+        return;
+      }
+      payload.catalogo_id = item.id;
       const clienteId = parseInt(selectCliente.value, 10);
       const clienteSelecionado = clientes.find(c => c.id === clienteId);
       payload.cliente_id = clienteId;

@@ -33,6 +33,10 @@ npm run dev:frontend
 ```
 Acesse em: `http://localhost:5173` (landing) e `http://localhost:5173/sistema.html` (sistema).
 
+### Catálogo de exames
+O nome e o valor dos exames ficam no banco e são mantidos pelo administrador em
+**Configurações → Catálogo de Exames** (com importação de CSV). Veja o `CLAUDE.md`.
+
 ### 2. Testes
 ```bash
 npm test --prefix frontend          # frontend (vitest)

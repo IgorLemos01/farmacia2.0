@@ -156,6 +156,30 @@ Você verá a interface do Swagger com todos os endpoints disponíveis para test
 | GET    | /api/usuarios       | Lista os usuários                                            |
 | PUT    | /api/usuarios/{id}  | Altera nome, perfil, ativo (desativar) ou redefine a senha   |
 
+## Endpoints do Catálogo de Exames
+
+| Método | Rota                              | Quem                | Descrição                                              |
+|--------|-----------------------------------|---------------------|--------------------------------------------------------|
+| GET    | /api/catalogo-exames?ativos=true  | qualquer logado     | Lista (só os disponíveis com `ativos=true`)            |
+| POST   | /api/catalogo-exames              | admin               | Adiciona exame (`nome`, `valor`)                       |
+| PUT    | /api/catalogo-exames/{id}         | admin               | Altera `nome`, `valor` ou `ativo` (false = remover)    |
+| POST   | /api/catalogo-exames/importar     | admin               | Importa `{itens: [{nome, valor}]}`; nome existente tem o valor atualizado |
+
+Como funciona:
+- O catálogo mora no **banco** (tabela `catalogo_exames`, criada sozinha na primeira execução;
+  o SQL manual está em `backend/db/`). Nunca coloque preços no código: o repositório é público.
+- **Exame é sempre escolhido no catálogo**: `POST /api/exames` exige `catalogo_id`; nome e valor
+  são **copiados** para o registro e valem para sempre. Mudar o preço no catálogo não altera exames
+  já feitos. O valor enviado pelo cliente é ignorado.
+- Exame registrado não muda de nome/valor (`PUT /api/exames` só altera data, pagamento e
+  observações). Para corrigir, exclua o registro e cadastre de novo.
+- "Remover" do catálogo apenas desativa (`ativo=false`): some da lista de escolha, o histórico fica.
+- Nomes são únicos sem diferenciar maiúsculas; nomes de 1 letra são válidos (ex.: `K`).
+- Na tela: **Configurações → Catálogo de Exames** (só admin). A importação lê um CSV no navegador
+  (separador `;`, `,` ou tabulação; valores como `13`, `13,50` ou `R$ 1.250,00`; Excel do Windows ok).
+  **Reimportar devolve os exames existentes ao valor do arquivo.**
+- No modo demonstração o catálogo é uma amostra fictícia (os preços reais não ficam no site público).
+
 ## Editar e excluir registros
 
 Clientes, manipulações, exames e receitas têm `PUT` e `DELETE` na API e botões de editar/excluir

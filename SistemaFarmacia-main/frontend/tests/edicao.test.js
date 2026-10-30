@@ -115,8 +115,8 @@ describe.each([
   },
   {
     nome: 'exames', arquivo: '../src/js/views/exames.js', funcao: 'renderExames', chave: 'exames',
-    registro: { id: 7, cliente_id: 1, cliente_nome: 'Ana Souza', tipo_exame: 'Glicemia', data: '2026-10-10', valor: 10, forma_pagamento: 'PIX' },
-    form: 'formNovoExame', campo: 'exame_tipo', select: 'exame_cliente_id', titulo: 'tituloModalExame', novo: 'Registrar Exame / Teste Clínico', campoApi: 'tipo_exame',
+    registro: { id: 7, cliente_id: 1, cliente_nome: 'Ana Souza', tipo_exame: 'Glicemia', data: '2026-10-10', valor: 10, forma_pagamento: 'PIX', observacoes: 'Normal' },
+    form: 'formNovoExame', campo: 'exame_obs', select: 'exame_cliente_id', titulo: 'tituloModalExame', novo: 'Registrar Exame / Teste Clínico', campoApi: 'observacoes',
   },
   {
     nome: 'receitas', arquivo: '../src/js/views/receitas.js', funcao: 'renderReceitas', chave: 'receitas',

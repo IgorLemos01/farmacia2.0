@@ -48,12 +48,13 @@ export function botoesAcoes(id, { excluir = true } = {}) {
       : '');
 }
 
-/** Liga os botões gerados por `botoesAcoes` dentro de `container`. */
-export function ligarAcoes(container, { editar, excluir }) {
+/** Liga os botões `data-acao` (editar, excluir, reativar) dentro de `container`. */
+export function ligarAcoes(container, { editar, excluir, reativar }) {
+  const acoes = { editar, excluir, reativar };
   container.querySelectorAll('[data-acao]').forEach(botao => {
     botao.addEventListener('click', (ev) => {
       ev.stopPropagation();
-      (botao.dataset.acao === 'editar' ? editar : excluir)(botao.dataset.id);
+      acoes[botao.dataset.acao]?.(botao.dataset.id);
     });
   });
 }
@@ -67,4 +68,14 @@ export async function confirmarEExcluir({ mensagem, excluir, aoConcluir }) {
   } catch (err) {
     window.alert('Não foi possível excluir: ' + err.message);
   }
+}
+
+/** Texto sem acentos e em minúsculas, para buscas ("Sumário" casa com "sumario"). */
+export function semAcento(texto) {
+  return String(texto ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+/** 13 → "R$ 13,00" */
+export function formatarMoeda(valor) {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(valor) || 0);
 }

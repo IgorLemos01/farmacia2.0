@@ -1,13 +1,20 @@
 // ============================================================
-//  VIEW: CONFIGURAÇÕES — GESTÃO DE USUÁRIOS (SOMENTE ADMIN)
+//  VIEW: CONFIGURAÇÕES (SOMENTE ADMIN) — USUÁRIOS E CATÁLOGO DE EXAMES
 // ============================================================
 
 import { api, MODO_DEMO, sessao } from '../api.js';
 import { botoesAcoes, escapeHtml as esc, ligarAcoes } from '../utils.js';
+import { renderCatalogo } from './catalogo.js';
 
 const NOME_PERFIL = { admin: 'Administrador', atendente: 'Atendente' };
 
 const dataBR = iso => (iso ? String(iso).slice(0, 10).split('-').reverse().join('/') : '-');
+
+const ABAS = {
+  usuarios: { titulo: 'Usuários', render: renderUsuarios },
+  catalogo: { titulo: 'Catálogo de Exames', render: renderCatalogo },
+};
+let abaAtual = 'usuarios';
 
 export async function renderConfiguracoes(container) {
   const logado = sessao.usuario();
@@ -17,19 +24,57 @@ export async function renderConfiguracoes(container) {
     container.innerHTML = `
       <div class="card" style="text-align: center; padding: 48px 24px;">
         <p style="font-size: 1.05rem; font-weight: 800; color: var(--text-title); margin-bottom: 6px;">Acesso restrito</p>
-        <p style="font-size: 0.88rem; color: var(--text-muted);">Somente administradores podem gerenciar usuários e acessos.</p>
+        <p style="font-size: 0.88rem; color: var(--text-muted);">Somente administradores podem gerenciar usuários e o catálogo de exames.</p>
       </div>`;
     return;
   }
 
-  const usuarios = await api.listarUsuarios();
-
   container.innerHTML = `
     ${MODO_DEMO ? `
       <div class="card" style="margin-bottom: 16px; padding: 14px 20px; font-size: 0.85rem; color: var(--badge-warning-text); background: var(--badge-warning-bg);">
-        <strong>Modo demonstração:</strong> estes usuários são fictícios, ficam salvos só neste navegador e não existe login real.
+        <strong>Modo demonstração:</strong> os dados desta tela são fictícios, ficam salvos só neste navegador e não existe login real.
       </div>` : ''}
+    <div class="tabs" role="tablist">
+      ${Object.entries(ABAS).map(([chave, aba]) =>
+        `<button type="button" class="tab ${chave === abaAtual ? 'active' : ''}" role="tab" data-aba="${chave}" aria-selected="${chave === abaAtual}">${esc(aba.titulo)}</button>`).join('')}
+    </div>
+    <div id="conteudoConfig"></div>`;
 
+  const conteudo = container.querySelector('#conteudoConfig');
+
+  async function mostrarAba() {
+    try {
+      await ABAS[abaAtual].render(conteudo);
+    } catch (err) {
+      if (err.status === 401) return; // a tela de login já foi exibida
+      conteudo.innerHTML = `
+        <div class="card" style="text-align: center; padding: 40px; color: var(--text-muted);">
+          <p style="font-weight: 700; color: var(--text-title); margin-bottom: 6px;">Não foi possível carregar os dados.</p>
+          <p style="font-size: 0.85rem;">${esc(err.message)}</p>
+        </div>`;
+    }
+  }
+
+  container.querySelectorAll('[data-aba]').forEach(botao => {
+    botao.onclick = () => {
+      abaAtual = botao.dataset.aba;
+      container.querySelectorAll('[data-aba]').forEach(b => {
+        const ativa = b.dataset.aba === abaAtual;
+        b.classList.toggle('active', ativa);
+        b.setAttribute('aria-selected', String(ativa));
+      });
+      mostrarAba();
+    };
+  });
+
+  await mostrarAba();
+}
+
+async function renderUsuarios(container) {
+  const logado = sessao.usuario();
+  const usuarios = await api.listarUsuarios();
+
+  container.innerHTML = `
     <div class="card" style="padding: 0; overflow: hidden;">
       <div style="padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-light); flex-wrap: wrap; gap: 14px;">
         <div>
@@ -203,7 +248,7 @@ export async function renderConfiguracoes(container) {
         });
       }
       fecharModal();
-      await renderConfiguracoes(container);
+      await renderUsuarios(container);
     } catch (err) {
       alert('Erro ao salvar usuário: ' + err.message);
     }

@@ -196,6 +196,12 @@ const MOCK_DATA = {
       criado_em: '2026-10-23T08:20:00',
     },
   ],
+  catalogo_exames: [
+    ['Glicemia em jejum', 10], ['Hemograma completo', 20], ['TSH', 25], ['Colesterol total e frações', 30],
+    ['Triglicerídeos', 15], ['Ácido úrico', 12], ['Teste de gravidez', 18], ['Sumário de urina', 12],
+  ].map(([nome, valor], i) => ({
+    id: i + 1, nome, valor, ativo: true, criado_em: '2026-10-01T09:00:00', atualizado_em: '2026-10-01T09:00:00',
+  })),
   usuarios: [
     {
       id: 1,
@@ -240,7 +246,8 @@ const demo = {
     const lista = demo.ler(chave);
     const i = lista.findIndex(item => String(item.id) === String(id));
     if (i < 0) throw new ApiError('Registro não encontrado.', 404);
-    lista[i] = { ...lista[i], ...dados, id: lista[i].id };
+    const definidos = Object.fromEntries(Object.entries(dados).filter(([, v]) => v !== undefined));
+    lista[i] = { ...lista[i], ...definidos, id: lista[i].id };
     demo.gravar(chave, lista);
     return lista[i];
   },
@@ -275,6 +282,27 @@ async function excluirRegistro(rota, chave, id) {
 }
 
 const DEMO_HISTORICO = ['manipulacoes', 'exames', 'receitas'];
+
+// ── Catálogo de exames (modo demonstração: mesmas regras do backend) ──
+const normalizarNome = nome => String(nome ?? '').replace(/\s+/g, ' ').trim();
+
+function validarNomeCatalogo(nome) {
+  const limpo = normalizarNome(nome);
+  if (!limpo) throw new ApiError('O nome do exame é obrigatório.', 400); // 1 letra vale (ex.: "K" = potássio)
+  if (limpo.length > 200) throw new ApiError('O nome do exame deve ter no máximo 200 caracteres.', 400);
+  return limpo;
+}
+
+function validarValorCatalogo(valor) {
+  if (valor === null || valor === undefined || valor === '' || typeof valor === 'boolean') throw new ApiError('Valor é obrigatório.', 400);
+  const numero = Number(valor);
+  if (!Number.isFinite(numero)) throw new ApiError('Valor inválido.', 400);
+  if (numero < 0) throw new ApiError('Valor não pode ser negativo.', 400);
+  if (numero > 99999999.99) throw new ApiError('Valor muito alto.', 400);
+  return Math.round(numero * 100) / 100;
+}
+
+const mesmoNome = (a, b) => a.toLowerCase() === b.toLowerCase();
 
 export const api = {
   // --- Autenticação ---
@@ -341,9 +369,12 @@ export const api = {
     return demo.ler('exames');
   },
 
-  async cadastrarExame(dados) {
-    if (!MODO_DEMO) return (await request('/exames', { method: 'POST', body: dados })).exame;
-    return demo.inserir('exames', dados);
+  async cadastrarExame({ catalogo_id, ...dados }) {
+    if (!MODO_DEMO) return (await request('/exames', { method: 'POST', body: { catalogo_id, ...dados } })).exame;
+    const item = demo.ler('catalogo_exames').find(e => e.id === catalogo_id && e.ativo);
+    if (!item) throw new ApiError('Escolha um exame da lista do catálogo.', 400);
+    // nome e valor vêm do catálogo, nunca do formulário
+    return demo.inserir('exames', { ...dados, tipo_exame: item.nome, valor: item.valor });
   },
 
   // --- Receitas ---
@@ -384,7 +415,10 @@ export const api = {
   atualizarManipulacao: (id, dados) => atualizarRegistro('manipulacoes', 'manipulacoes', 'manipulacao', id, dados),
   excluirManipulacao: id => excluirRegistro('manipulacoes', 'manipulacoes', id),
 
-  atualizarExame: (id, dados) => atualizarRegistro('exames', 'exames', 'exame', id, dados),
+  // Nome e valor do exame não mudam depois de registrados (só data, pagamento e observações).
+  atualizarExame(id, { data, forma_pagamento, observacoes }) {
+    return atualizarRegistro('exames', 'exames', 'exame', id, { data, forma_pagamento, observacoes });
+  },
   excluirExame: id => excluirRegistro('exames', 'exames', id),
 
   atualizarReceita: (id, dados) => atualizarRegistro('receitas', 'receitas', 'receita', id, dados),
@@ -415,5 +449,80 @@ export const api = {
     if (dados.senha && dados.senha.length < 6) throw new ApiError('Senha deve ter pelo menos 6 caracteres.', 400);
     const { senha: _senha, ...resto } = dados;
     return demo.atualizar('usuarios', id, resto);
+  },
+
+  // --- Catálogo de exames ---
+  // Todos podem consultar; criar, editar, desativar e importar é só do administrador (a API confere).
+  async listarCatalogoExames({ apenasAtivos = false } = {}) {
+    if (!MODO_DEMO) return (await request(`/catalogo-exames${apenasAtivos ? '?ativos=true' : ''}`)).itens || [];
+    return demo.ler('catalogo_exames')
+      .filter(e => !apenasAtivos || e.ativo)
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  },
+
+  async cadastrarCatalogoExame({ nome, valor }) {
+    if (!MODO_DEMO) return (await request('/catalogo-exames', { method: 'POST', body: { nome, valor } })).exame;
+    const limpo = validarNomeCatalogo(nome);
+    const preco = validarValorCatalogo(valor);
+    const existente = demo.ler('catalogo_exames').find(e => mesmoNome(e.nome, limpo));
+    if (existente) {
+      throw new ApiError(`Já existe um exame chamado '${existente.nome}'${existente.ativo ? '.' : ' (desativado). Reative-o na lista.'}`, 400);
+    }
+    const agora = new Date().toISOString();
+    return demo.inserir('catalogo_exames', { nome: limpo, valor: preco, ativo: true, atualizado_em: agora });
+  },
+
+  async atualizarCatalogoExame(id, dados) {
+    if (!MODO_DEMO) return atualizarRegistro('catalogo-exames', 'catalogo_exames', 'exame', id, dados);
+    const mudancas = {};
+    if ('nome' in dados) {
+      mudancas.nome = validarNomeCatalogo(dados.nome);
+      const outro = demo.ler('catalogo_exames').find(e => mesmoNome(e.nome, mudancas.nome) && String(e.id) !== String(id));
+      if (outro) throw new ApiError(`Já existe um exame chamado '${outro.nome}'.`, 400);
+    }
+    if ('valor' in dados) mudancas.valor = validarValorCatalogo(dados.valor);
+    if ('ativo' in dados) {
+      if (typeof dados.ativo !== 'boolean') throw new ApiError("O campo 'ativo' deve ser verdadeiro ou falso.", 400);
+      mudancas.ativo = dados.ativo;
+    }
+    return demo.atualizar('catalogo_exames', id, { ...mudancas, atualizado_em: new Date().toISOString() });
+  },
+
+  async importarCatalogoExames(itens) {
+    if (!MODO_DEMO) return request('/catalogo-exames/importar', { method: 'POST', body: { itens } });
+    if (!Array.isArray(itens) || !itens.length) throw new ApiError('Nenhum exame para importar.', 400);
+    if (itens.length > 1000) throw new ApiError('Importe no máximo 1000 exames por vez.', 400);
+
+    const lista = demo.ler('catalogo_exames');
+    const vistos = new Set();
+    const erros = [];
+    let criados = 0, atualizados = 0, iguais = 0;
+
+    itens.forEach((item, i) => {
+      const linha = item?.linha ?? i + 1;
+      let nome, valor;
+      try {
+        nome = validarNomeCatalogo(item?.nome);
+        valor = validarValorCatalogo(item?.valor);
+      } catch (err) {
+        erros.push({ linha, nome: String(item?.nome ?? ''), motivo: err.message });
+        return;
+      }
+      const chave = nome.toLowerCase();
+      if (vistos.has(chave)) { erros.push({ linha, nome, motivo: 'Nome repetido no arquivo.' }); return; }
+      vistos.add(chave);
+
+      const existente = lista.find(e => mesmoNome(e.nome, nome));
+      if (!existente) {
+        lista.push({ id: Date.now() + i, nome, valor, ativo: true, criado_em: new Date().toISOString(), atualizado_em: new Date().toISOString() });
+        criados++;
+      } else if (existente.valor !== valor || !existente.ativo) {
+        Object.assign(existente, { valor, ativo: true, atualizado_em: new Date().toISOString() });
+        atualizados++;
+      } else iguais++;
+    });
+
+    demo.gravar('catalogo_exames', lista);
+    return { criados, atualizados, iguais, erros };
   },
 };
