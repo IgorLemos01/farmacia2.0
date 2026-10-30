@@ -111,8 +111,8 @@
       <!-- Seção Geral -->
       <div class="sidebar-section-title">GERAL</div>
       <ul class="nav-menu">
-        <li class="nav-item">
-          <a class="nav-link" onclick="alert('Configurações do sistema')">
+        <li class="nav-item" data-route="configuracoes">
+          <a class="nav-link">
             <div class="nav-link-content">
               <!-- Ícone Engrenagem -->
               <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -123,28 +123,7 @@
             </div>
           </a>
         </li>
-        <li class="nav-item">
-          <a class="nav-link" id="linkAjudaApi">
-            <div class="nav-link-content">
-              <!-- Ícone Ajuda -->
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-                <line x1="12" y1="17" x2="12.01" y2="17"/>
-              </svg>
-              <span>Ajuda & Swagger</span>
-            </div>
-          </a>
-        </li>
       </ul>
-
-      <!-- Card Promocional / Atalhos da Sidebar (Donezo Style) -->
-      <div class="sidebar-footer-card">
-        <span class="sfc-tag">⚡ PharmaCore 2.0</span>
-        <div class="sfc-title">Gestão e Prontuários</div>
-        <div class="sfc-desc">Acesso rápido a todos os históricos de saúde.</div>
-        <button class="sfc-btn" onclick="window.appRouter.navigate('clientes')">Ver Pacientes</button>
-      </div>
     </aside>
 
     <!-- ÁREA PRINCIPAL -->
