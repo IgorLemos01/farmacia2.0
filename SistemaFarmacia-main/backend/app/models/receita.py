@@ -12,6 +12,8 @@ class Receita(db.Model):
         data_venda          — Data da venda/atendimento (NOT NULL).
         medico_prescritor   — Médico que prescreveu (opcional).
         observacoes         — Instruções adicionais (opcional).
+        farmaceutico_*      — Farmacêutico responsável (cópia do usuário no momento da receita:
+                              mudar o cadastro do usuário depois não altera receitas emitidas).
         itens               — Medicamentos da receita (tabela `receita_itens`).
         criado_em           — Data/hora de criação do registro.
     """
@@ -23,6 +25,10 @@ class Receita(db.Model):
     data_venda = db.Column(db.Date, nullable=False, default=datetime.date.today)
     medico_prescritor = db.Column(db.String(200), nullable=True)
     observacoes = db.Column(db.Text, nullable=True)
+    farmaceutico_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"), nullable=True)
+    farmaceutico_nome = db.Column(db.String(120), nullable=True)
+    farmaceutico_cargo = db.Column(db.String(80), nullable=True)
+    farmaceutico_registro = db.Column(db.String(40), nullable=True)
     criado_em = db.Column(db.DateTime, nullable=False, default=agora_utc)
 
     # Relacionamentos
@@ -44,6 +50,16 @@ class Receita(db.Model):
             "data_venda": self.data_venda.isoformat() if self.data_venda else None,
             "medico_prescritor": self.medico_prescritor,
             "observacoes": self.observacoes,
+            "farmaceutico": (
+                {
+                    "id": self.farmaceutico_id,
+                    "nome": self.farmaceutico_nome,
+                    "cargo": self.farmaceutico_cargo,
+                    "registro_profissional": self.farmaceutico_registro,
+                }
+                if self.farmaceutico_nome
+                else None
+            ),
             "itens": [i.to_dict() for i in self.itens],
             # resumo para listagens: "ALPRAZOLAM 0,25 MG; AMOXICILINA 500 MG"
             "medicamentos": "; ".join(i.medicamento for i in self.itens),
@@ -58,8 +74,9 @@ class ReceitaItem(db.Model):
     """
     Um medicamento dentro de uma receita.
 
-    `medicamento`, `rms` e `laboratorio` são cópias do catálogo no momento do registro:
-    mudar o catálogo depois não altera receitas já emitidas.
+    `medicamento` é cópia do catálogo no momento do registro. `rms` e `laboratorio` também vêm
+    do catálogo, mas podem ser corrigidos no lançamento (ex.: a caixa entregue é de outro
+    fabricante). Mudar o catálogo depois não altera receitas já emitidas.
     Lote, validade e quantidade são informados pelo atendente (vêm da embalagem).
     """
 

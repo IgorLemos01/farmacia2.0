@@ -1,19 +1,105 @@
+import datetime
+
 # pyrefly: ignore[missing-import]
 from sqlalchemy import or_
 
 from app.extensions import db
 from app.models.cliente import Cliente
-from app.utils import parse_data, texto_obrigatorio
+from app.utils import (
+    normalizar_cep,
+    normalizar_cpf,
+    normalizar_email,
+    normalizar_telefone,
+    normalizar_uf,
+    parse_data,
+    texto_opcional,
+)
+
+SEXOS = ("M", "F", "Outro")
+
+
+def _nome(valor) -> str:
+    if not isinstance(valor, str) or not " ".join(valor.split()):
+        raise ValueError("O campo 'Nome completo' é obrigatório.")
+    nome = " ".join(valor.split())
+    if len(nome) < 2:
+        raise ValueError("Informe o nome do cliente.")
+    if len(nome) > 150:
+        raise ValueError("O nome deve ter no máximo 150 caracteres.")
+    return nome
+
+
+def _sexo(valor):
+    if valor in (None, ""):
+        return None
+    if valor not in SEXOS:
+        raise ValueError("Sexo inválido. Utilize 'M', 'F' ou 'Outro'.")
+    return valor
+
+
+def _nascimento(valor):
+    data = parse_data(valor, "Data de nascimento")
+    if data and data > datetime.date.today():
+        raise ValueError("A data de nascimento não pode ser no futuro.")
+    if data and data.year < 1900:
+        raise ValueError("Data de nascimento inválida.")
+    return data
+
+
+def _texto_livre(valor, rotulo: str, maximo: int = 5000):
+    return texto_opcional(valor, maximo, rotulo)
+
+
+# campo → função que valida/normaliza o valor enviado (None = apagar)
+_NORMALIZADORES = {
+    "nome": _nome,
+    "telefone": normalizar_telefone,
+    "cpf": normalizar_cpf,
+    "rg": lambda v: texto_opcional(v, 20, "RG"),
+    "data_nascimento": _nascimento,
+    "sexo": _sexo,
+    "email": normalizar_email,
+    "cep": normalizar_cep,
+    "endereco": lambda v: texto_opcional(v, 300, "Rua / Logradouro"),
+    "numero": lambda v: texto_opcional(v, 20, "Número"),
+    "complemento": lambda v: texto_opcional(v, 100, "Complemento"),
+    "bairro": lambda v: texto_opcional(v, 100, "Bairro"),
+    "cidade": lambda v: texto_opcional(v, 100, "Cidade"),
+    "estado": normalizar_uf,
+    "alergia": lambda v: _texto_livre(v, "Alergias"),
+    "observacoes": lambda v: _texto_livre(v, "Observações"),
+}
+
+
+def _validar(dados: dict, campos) -> dict:
+    """Valida só os campos informados; devolve {campo: valor normalizado}."""
+    if not isinstance(dados, dict):
+        raise ValueError("Dados inválidos.")
+    return {campo: _NORMALIZADORES[campo](dados.get(campo)) for campo in campos}
+
+
+def _conferir_cpf_unico(cpf, ignorar_id=None):
+    if not cpf:
+        return
+    existente = Cliente.query.filter(Cliente.cpf == cpf).first()
+    if existente and existente.id != ignorar_id:
+        raise ValueError(f"O CPF {cpf} já pertence ao cliente {existente.nome}.")
 
 
 class ClienteService:
-    """Regras de negócio para gerenciamento de clientes."""
+    """
+    Regras de negócio para clientes (cadastro progressivo).
+
+    Só nome e telefone são obrigatórios: no balcão o cliente nem sempre tem documentos.
+    O restante pode ser completado depois (PUT parcial).
+    """
 
     @staticmethod
     def listar(busca: str = None, limite: int = 50, pagina: int = 1):
         query = Cliente.query
+        limite = max(1, min(limite or 50, 200))
 
-        if busca:
+        if busca and busca.strip():
             termo = f"%{busca.strip()}%"
             query = query.filter(
                 or_(
@@ -26,12 +112,13 @@ class ClienteService:
 
         query = query.order_by(Cliente.nome.asc())
         paginacao = query.paginate(page=pagina, per_page=limite, error_out=False)
+        itens = paginacao.items
 
         return {
             "total": paginacao.total,
             "paginas": paginacao.pages,
             "pagina_atual": paginacao.page,
-            "itens": [c.to_dict() for c in paginacao.items],
+            "itens": [c.to_dict() for c in itens],
         }
 
     @staticmethod
@@ -40,90 +127,34 @@ class ClienteService:
 
     @staticmethod
     def cadastrar(dados: dict) -> Cliente:
-        cpf = dados.get("cpf", "").strip()
-        if not cpf:
-            raise ValueError("CPF é obrigatório.")
+        """Cria o cliente. Obrigatórios: nome e telefone; os outros campos são opcionais."""
+        valores = _validar(dados, _NORMALIZADORES.keys())
+        _conferir_cpf_unico(valores["cpf"])
 
-        # Verifica se CPF já existe
-        if Cliente.query.filter_by(cpf=cpf).first():
-            raise ValueError(f"Já existe um cliente cadastrado com o CPF {cpf}.")
-
-        # Validação de campos obrigatórios
-        campos_obrigatorios = [
-            ("nome", "Nome"),
-            ("cpf", "CPF"),
-            ("rg", "RG"),
-            ("data_nascimento", "Data de nascimento"),
-            ("sexo", "Sexo"),
-            ("telefone", "Telefone"),
-            ("email", "E-mail"),
-            ("endereco", "Endereço"),
-        ]
-
-        for campo, label in campos_obrigatorios:
-            if not dados.get(campo):
-                raise ValueError(f"O campo '{label}' é obrigatório.")
-
-        sexo = dados.get("sexo")
-        if sexo not in ("M", "F", "Outro"):
-            raise ValueError("Sexo inválido. Utilize 'M', 'F' ou 'Outro'.")
-
-        data_nasc = parse_data(dados.get("data_nascimento"), "Data de nascimento")
-
-        cliente = Cliente(
-            nome=dados["nome"].strip(),
-            cpf=cpf,
-            rg=dados["rg"].strip(),
-            data_nascimento=data_nasc,
-            sexo=sexo,
-            telefone=dados["telefone"].strip(),
-            email=dados["email"].strip().lower(),
-            endereco=dados["endereco"].strip(),
-            alergia=dados.get("alergia"),
-            observacoes=dados.get("observacoes"),
-        )
-
+        cliente = Cliente(**valores)
         db.session.add(cliente)
         db.session.commit()
         return cliente
 
     @staticmethod
     def atualizar(cliente_id: int, dados: dict) -> Cliente:
+        """Atualiza só os campos enviados (permite completar o cadastro aos poucos)."""
         cliente = db.session.get(Cliente, cliente_id)
         if not cliente:
-            raise ValueError("Cliente não encontrado.")
+            raise LookupError("Cliente não encontrado.")
+        if not isinstance(dados, dict):
+            raise ValueError("Dados inválidos.")
 
-        novo_cpf = dados.get("cpf")
-        if novo_cpf and novo_cpf != cliente.cpf:
-            existente = Cliente.query.filter_by(cpf=novo_cpf).first()
-            if existente and existente.id != cliente_id:
-                raise ValueError(f"O CPF {novo_cpf} já pertence a outro cliente.")
-            cliente.cpf = novo_cpf
+        campos = [c for c in _NORMALIZADORES if c in dados]
+        # CPF igual ao já salvo não é revalidado (cadastros antigos podem ter CPF fora do padrão)
+        if "cpf" in campos and (dados.get("cpf") or None) == cliente.cpf:
+            campos.remove("cpf")
+        valores = _validar(dados, campos)
+        if "cpf" in valores:
+            _conferir_cpf_unico(valores["cpf"], ignorar_id=cliente.id)
 
-        if "nome" in dados:
-            cliente.nome = texto_obrigatorio(dados["nome"], "Nome")
-        if "rg" in dados:
-            cliente.rg = texto_obrigatorio(dados["rg"], "RG")
-        if "data_nascimento" in dados:
-            data_nasc = parse_data(dados["data_nascimento"], "Data de nascimento")
-            if not data_nasc:
-                raise ValueError("Data de nascimento é obrigatória.")
-            cliente.data_nascimento = data_nasc
-        if "sexo" in dados:
-            if dados["sexo"] not in ("M", "F", "Outro"):
-                raise ValueError("Sexo inválido. Utilize 'M', 'F' ou 'Outro'.")
-            cliente.sexo = dados["sexo"]
-        if "telefone" in dados:
-            cliente.telefone = texto_obrigatorio(dados["telefone"], "Telefone")
-        if "email" in dados:
-            cliente.email = texto_obrigatorio(dados["email"], "E-mail").lower()
-        if "endereco" in dados:
-            cliente.endereco = texto_obrigatorio(dados["endereco"], "Endereço")
-        if "alergia" in dados:
-            cliente.alergia = dados.get("alergia")
-        if "observacoes" in dados:
-            cliente.observacoes = dados.get("observacoes")
-
+        for campo, valor in valores.items():
+            setattr(cliente, campo, valor)
         db.session.commit()
         return cliente
 
@@ -131,7 +162,7 @@ class ClienteService:
     def deletar(cliente_id: int):
         cliente = db.session.get(Cliente, cliente_id)
         if not cliente:
-            raise ValueError("Cliente não encontrado.")
+            raise LookupError("Cliente não encontrado.")
 
         # Integridade referencial
         if cliente.manipulacoes.count() > 0 or cliente.exames.count() > 0 or cliente.receitas.count() > 0:
@@ -147,7 +178,7 @@ class ClienteService:
         """Retorna os dados cadastrais do cliente + histórico completo de saúde."""
         cliente = db.session.get(Cliente, cliente_id)
         if not cliente:
-            raise ValueError("Cliente não encontrado.")
+            raise LookupError("Cliente não encontrado.")
 
         return {
             "cliente": cliente.to_dict(),

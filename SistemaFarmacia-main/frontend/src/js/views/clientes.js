@@ -3,7 +3,10 @@
 // ============================================================
 
 import { api } from '../api.js';
-import { botoesAcoes, confirmarEExcluir, escapeHtml as esc, ligarAcoes } from '../utils.js';
+import { abrirFormularioCliente, seloCadastro } from '../formCliente.js';
+import { formatarDataBR } from '../pdf.js';
+import { botoesAcoes, confirmarEExcluir, escapeHtml as esc, formatarMoeda, ligarAcoes } from '../utils.js';
+import { SEXOS } from '../validacao.js';
 
 export async function renderClientes(container, searchTerm = '') {
   const clientes = await api.listarClientes(searchTerm);
@@ -13,7 +16,7 @@ export async function renderClientes(container, searchTerm = '') {
       <div style="padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-light); flex-wrap: wrap; gap: 14px;">
         <div>
           <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--text-title); letter-spacing: -0.4px;">Clientes Cadastrados</h2>
-          <p style="font-size: 0.82rem; color: var(--text-muted);">Total de ${clientes.length} paciente(s) na base</p>
+          <p style="font-size: 0.82rem; color: var(--text-muted);">${clientes.length} paciente(s) ${searchTerm ? 'encontrado(s)' : 'na lista'} · cadastro rápido: só nome e WhatsApp</p>
         </div>
         <div style="display: flex; gap: 10px;">
           <button class="btn btn-primary" id="btnAbrirModalCliente">
@@ -29,7 +32,7 @@ export async function renderClientes(container, searchTerm = '') {
             <tr>
               <th>Paciente</th>
               <th>CPF / RG</th>
-              <th>Contato</th>
+              <th>WhatsApp / Endereço</th>
               <th>Sexo / Nasc.</th>
               <th>Alergias</th>
               <th style="text-align: right;">Ações</th>
@@ -46,21 +49,22 @@ export async function renderClientes(container, searchTerm = '') {
                           <div class="user-initials">${esc(c.nome.substring(0, 2).toUpperCase())}</div>
                           <div>
                             <div style="font-weight: 700; color: var(--text-title);">${esc(c.nome)}</div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted);">${esc(c.email)}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">${esc(c.email || '')}</div>
+                            ${seloCadastro(c)}
                           </div>
                         </div>
                       </td>
                       <td>
-                        <div style="font-weight: 600; font-family: monospace;">${esc(c.cpf)}</div>
+                        <div style="font-weight: 600; font-family: monospace;">${esc(c.cpf || '—')}</div>
                         <div style="font-size: 0.75rem; color: var(--text-muted);">${esc(c.rg || '-')}</div>
                       </td>
                       <td>
                         <div style="font-weight: 500;">${esc(c.telefone)}</div>
-                        <div style="font-size: 0.72rem; color: var(--text-muted); max-width: 180px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${esc(c.endereco)}</div>
+                        <div style="font-size: 0.72rem; color: var(--text-muted); max-width: 200px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;" title="${esc(c.endereco_completo || '')}">${esc(c.endereco_completo || '—')}</div>
                       </td>
                       <td>
-                        <span class="badge badge-neutral">${c.sexo === 'M' ? 'Masc' : c.sexo === 'F' ? 'Fem' : 'Outro'}</span>
-                        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">${esc(c.data_nascimento || '-')}</div>
+                        <span class="badge badge-neutral">${c.sexo === 'M' ? 'Masc' : c.sexo === 'F' ? 'Fem' : c.sexo ? 'Outro' : '—'}</span>
+                        <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">${esc(formatarDataBR(c.data_nascimento) || '—')}</div>
                       </td>
                       <td>
                         ${
@@ -85,78 +89,6 @@ export async function renderClientes(container, searchTerm = '') {
       </div>
     </div>
 
-    <!-- MODAL DE CADASTRO DE CLIENTE -->
-    <div class="modal-overlay" id="modalNovoCliente">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h3 class="modal-title" id="tituloModalCliente">Novo Cliente</h3>
-          <button class="modal-close" id="btnFecharModalCliente">&times;</button>
-        </div>
-        <form id="formNovoCliente">
-          <div class="form-grid">
-            <div class="form-group form-group-full">
-              <label class="form-label">Nome Completo <span class="req">*</span></label>
-              <input type="text" class="form-input" id="cli_nome" required placeholder="Ex: Ana Maria dos Santos"/>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">CPF <span class="req">*</span></label>
-              <input type="text" class="form-input" id="cli_cpf" required placeholder="000.000.000-00"/>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">RG <span class="req">*</span></label>
-              <input type="text" class="form-input" id="cli_rg" required placeholder="0.000.000-SSP"/>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Data de Nascimento <span class="req">*</span></label>
-              <input type="date" class="form-input" id="cli_nasc" required/>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Sexo <span class="req">*</span></label>
-              <select class="form-select" id="cli_sexo" required>
-                <option value="M">Masculino</option>
-                <option value="F">Feminino</option>
-                <option value="Outro">Outro</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Telefone / WhatsApp <span class="req">*</span></label>
-              <input type="tel" class="form-input" id="cli_tel" required placeholder="(79) 99999-9999"/>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">E-mail <span class="req">*</span></label>
-              <input type="email" class="form-input" id="cli_email" required placeholder="cliente@email.com"/>
-            </div>
-
-            <div class="form-group form-group-full">
-              <label class="form-label">Endereço Completo <span class="req">*</span></label>
-              <input type="text" class="form-input" id="cli_end" required placeholder="Rua, número, bairro, cidade - UF"/>
-            </div>
-
-            <div class="form-group form-group-full">
-              <label class="form-label">Alergias Conhecidas</label>
-              <input type="text" class="form-input" id="cli_alergia" placeholder="Ex: Dipirona, Penicilina, Iodo..."/>
-            </div>
-
-            <div class="form-group form-group-full">
-              <label class="form-label">Observações Gerais</label>
-              <textarea class="form-textarea" id="cli_obs" placeholder="Preferências de contato, histórico ou informações complementares..."></textarea>
-            </div>
-          </div>
-
-          <div style="display: flex; justify-content: flex-end; gap: 12px;">
-            <button type="button" class="btn btn-secondary" id="btnCancelarCliente">Cancelar</button>
-            <button type="submit" class="btn btn-primary" id="btnSalvarCliente">Salvar Cadastro</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
     <!-- DRAWER LATERAL: DOSSIÊ 360° DO CLIENTE -->
     <div class="drawer-overlay" id="drawerDossie">
       <div class="drawer-panel" id="drawerDossieContent">
@@ -165,71 +97,24 @@ export async function renderClientes(container, searchTerm = '') {
     </div>
   `;
 
-  // Modal de cadastro / edição
-  const modal = document.getElementById('modalNovoCliente');
-  const form = document.getElementById('formNovoCliente');
-  let editando = null;
-
-  function abrirModal(cliente = null) {
-    editando = cliente;
-    form.reset();
-    document.getElementById('tituloModalCliente').textContent = cliente ? 'Editar Cliente' : 'Novo Cliente';
-    document.getElementById('btnSalvarCliente').textContent = cliente ? 'Salvar Alterações' : 'Salvar Cadastro';
-    if (cliente) {
-      document.getElementById('cli_nome').value = cliente.nome || '';
-      document.getElementById('cli_cpf').value = cliente.cpf || '';
-      document.getElementById('cli_rg').value = cliente.rg || '';
-      document.getElementById('cli_nasc').value = cliente.data_nascimento || '';
-      document.getElementById('cli_sexo').value = cliente.sexo || 'M';
-      document.getElementById('cli_tel').value = cliente.telefone || '';
-      document.getElementById('cli_email').value = cliente.email || '';
-      document.getElementById('cli_end').value = cliente.endereco || '';
-      document.getElementById('cli_alergia').value = cliente.alergia || '';
-      document.getElementById('cli_obs').value = cliente.observacoes || '';
-    }
-    modal.classList.add('active');
-  }
-  const fecharModal = () => modal.classList.remove('active');
-
-  document.getElementById('btnAbrirModalCliente').onclick = () => abrirModal();
-  document.getElementById('btnFecharModalCliente').onclick = fecharModal;
-  document.getElementById('btnCancelarCliente').onclick = fecharModal;
+  // Cadastro e edição: formulário compartilhado (o mesmo usado no balcão das outras telas)
+  const recarregar = () => renderClientes(container, searchTerm);
+  document.getElementById('btnAbrirModalCliente').onclick = async () => {
+    if (await abrirFormularioCliente({ modo: 'novo' })) await recarregar();
+  };
 
   const porId = id => clientes.find(c => String(c.id) === String(id));
   ligarAcoes(container, {
-    editar: id => abrirModal(porId(id)),
+    editar: async id => {
+      const cliente = porId(id);
+      if (await abrirFormularioCliente({ modo: cliente?.cadastro_completo ? 'editar' : 'completar', cliente })) await recarregar();
+    },
     excluir: id => confirmarEExcluir({
       mensagem: `Excluir o cadastro de ${porId(id)?.nome || 'este cliente'}? Esta ação não pode ser desfeita.`,
       excluir: () => api.excluirCliente(id),
-      aoConcluir: () => renderClientes(container, searchTerm),
+      aoConcluir: recarregar,
     }),
   });
-
-  // Submit do formulário de cliente
-  form.onsubmit = async (e) => {
-    e.preventDefault();
-    const payload = {
-      nome: document.getElementById('cli_nome').value.trim(),
-      cpf: document.getElementById('cli_cpf').value.trim(),
-      rg: document.getElementById('cli_rg').value.trim(),
-      data_nascimento: document.getElementById('cli_nasc').value,
-      sexo: document.getElementById('cli_sexo').value,
-      telefone: document.getElementById('cli_tel').value.trim(),
-      email: document.getElementById('cli_email').value.trim(),
-      endereco: document.getElementById('cli_end').value.trim(),
-      alergia: document.getElementById('cli_alergia').value.trim() || null,
-      observacoes: document.getElementById('cli_obs').value.trim() || null,
-    };
-
-    try {
-      if (editando) await api.atualizarCliente(editando.id, payload);
-      else await api.cadastrarCliente(payload);
-      fecharModal();
-      await renderClientes(container, searchTerm);
-    } catch (err) {
-      alert('Erro ao salvar cliente: ' + err.message);
-    }
-  };
 
   // Função global de Dossiê 360°
   window.abrirDossie = async (id) => {
@@ -255,7 +140,8 @@ export async function renderClientes(container, searchTerm = '') {
           <div class="user-initials" style="width: 52px; height: 52px; font-size: 1.2rem;">${esc(c.nome.substring(0, 2).toUpperCase())}</div>
           <div>
             <h3 style="font-size: 1.2rem; font-weight: 800; color: var(--text-title);">${esc(c.nome)}</h3>
-            <span style="font-size: 0.78rem; color: var(--text-muted); font-family: monospace;">CPF: ${esc(c.cpf)} • RG: ${esc(c.rg)}</span>
+            <span style="font-size: 0.78rem; color: var(--text-muted); font-family: monospace;">CPF: ${esc(c.cpf || '—')} • RG: ${esc(c.rg || '—')}</span>
+            <div style="margin-top: 4px;">${seloCadastro(c)}</div>
           </div>
         </div>
         <button class="modal-close" onclick="document.getElementById('drawerDossie').classList.remove('active')">&times;</button>
@@ -273,11 +159,11 @@ export async function renderClientes(container, searchTerm = '') {
       }
 
       <div style="background: #f8faf9; border: 1px solid var(--border-light); padding: 16px; border-radius: var(--radius-lg); margin-bottom: 24px; font-size: 0.84rem; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-        <div><strong>Telefone:</strong> ${esc(c.telefone)}</div>
-        <div><strong>E-mail:</strong> ${esc(c.email)}</div>
-        <div><strong>Nascimento:</strong> ${esc(c.data_nascimento)}</div>
-        <div><strong>Sexo:</strong> ${c.sexo === 'M' ? 'Masculino' : c.sexo === 'F' ? 'Feminino' : 'Outro'}</div>
-        <div style="grid-column: 1 / -1;"><strong>Endereço:</strong> ${esc(c.endereco)}</div>
+        <div><strong>WhatsApp:</strong> ${esc(c.telefone)}</div>
+        <div><strong>E-mail:</strong> ${esc(c.email || '—')}</div>
+        <div><strong>Nascimento:</strong> ${esc(formatarDataBR(c.data_nascimento) || '—')}</div>
+        <div><strong>Sexo:</strong> ${esc(SEXOS[c.sexo] || '—')}</div>
+        <div style="grid-column: 1 / -1;"><strong>Endereço:</strong> ${esc(c.endereco_completo || '—')}</div>
       </div>
 
       <h4 style="font-size: 0.95rem; font-weight: 800; color: var(--text-title); margin-bottom: 12px;">Histórico Clínico Unificado</h4>
@@ -310,11 +196,11 @@ export async function renderClientes(container, searchTerm = '') {
             ? `<p style="font-size: 0.78rem; color: var(--text-muted); font-style: italic; margin-top: 6px;">Nenhum exame registrado.</p>`
             : h.exames.map(ex => `
                 <div style="background: #ffffff; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 12px; margin-top: 8px;">
-                  <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-title);">${esc(ex.tipo_exame)}</div>
+                  <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-title);">${(ex.itens?.length ? ex.itens : [{ nome: ex.tipo_exame, valor: ex.valor }]).map(i => `• ${esc(i.nome)} <span style="font-weight: 500; color: var(--text-muted);">${formatarMoeda(i.valor)}</span>`).join('<br>')}</div>
                   <div style="font-size: 0.78rem; color: var(--text-body); margin-top: 4px;">${esc(ex.observacoes || 'Sem observações')}</div>
                   <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">
-                    <span>Data: ${esc(ex.data)}</span>
-                    <strong style="color: var(--color-primary-dark);">R$ ${Number(ex.valor || 0).toFixed(2)}</strong>
+                    <span>Data: ${esc(formatarDataBR(ex.data) || ex.data)}</span>
+                    <strong style="color: var(--color-primary-dark);">Total ${formatarMoeda(ex.valor)}</strong>
                   </div>
                 </div>
               `).join('')

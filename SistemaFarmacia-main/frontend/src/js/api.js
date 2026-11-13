@@ -7,15 +7,18 @@
 // ============================================================
 
 import { CHAVES_MODULOS } from './permissoes.js';
+import { completarCliente, validarCliente } from './validacao.js';
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 
 export const MODO_DEMO = !API_BASE_URL;
 
 export class ApiError extends Error {
-  constructor(message, status) {
+  /** `dados` é o corpo da resposta de erro (ex.: o medicamento já existente num 409). */
+  constructor(message, status, dados = null) {
     super(message);
     this.status = status;
+    this.dados = dados;
   }
 }
 
@@ -85,7 +88,7 @@ async function request(path, { method = 'GET', body } = {}) {
     if (data?.errors) {
       mensagem += ': ' + Object.entries(data.errors).map(([campo, erro]) => `${campo} (${erro})`).join('; ');
     }
-    throw new ApiError(mensagem, res.status);
+    throw new ApiError(mensagem, res.status, data);
   }
   return data;
 }
@@ -97,13 +100,19 @@ const MOCK_DATA = {
     {
       id: 1,
       nome: 'Mariana Ribeiro Costa',
-      cpf: '123.456.789-01',
+      cpf: '123.456.789-09',
       rg: '1.234.567-SSP/SE',
       data_nascimento: '1992-04-18',
       sexo: 'F',
       telefone: '(79) 99882-1144',
       email: 'mariana.costa@email.com',
-      endereco: 'Av. Beira Mar, 420 - 13 de Julho, Aracaju/SE',
+      cep: '49020-000',
+      endereco: 'Av. Beira Mar',
+      numero: '420',
+      complemento: null,
+      bairro: '13 de Julho',
+      cidade: 'Aracaju',
+      estado: 'SE',
       alergia: 'Dipirona e AAS',
       observacoes: 'Paciente prefere contato pelo WhatsApp pela manhã.',
       criado_em: '2026-10-15T10:30:00',
@@ -111,13 +120,19 @@ const MOCK_DATA = {
     {
       id: 2,
       nome: 'Carlos Eduardo Santos',
-      cpf: '234.567.890-12',
+      cpf: '234.567.890-92',
       rg: '2.345.678-SSP/SE',
       data_nascimento: '1985-08-25',
       sexo: 'M',
       telefone: '(79) 99123-4567',
       email: 'carlos.edu@email.com',
-      endereco: 'Rua das Laranjeiras, 88 - Centro, Aracaju/SE',
+      cep: '49010-000',
+      endereco: 'Rua das Laranjeiras',
+      numero: '88',
+      complemento: null,
+      bairro: 'Centro',
+      cidade: 'Aracaju',
+      estado: 'SE',
       alergia: null,
       observacoes: 'Retira pedidos pessoalmente na filial Centro.',
       criado_em: '2026-10-18T14:15:00',
@@ -125,15 +140,21 @@ const MOCK_DATA = {
     {
       id: 3,
       nome: 'Fernanda Albuquerque Lima',
-      cpf: '345.678.901-23',
-      rg: '3.456.789-SSP/SE',
-      data_nascimento: '1998-11-03',
+      cpf: '345.678.901-75',
+      rg: null,
+      data_nascimento: null,
       sexo: 'F',
       telefone: '(79) 98765-4321',
-      email: 'fernanda.lima@email.com',
-      endereco: 'Rua Francisco Porto, 102 - Salgado Filho, Aracaju/SE',
+      email: null,
+      cep: null,
+      endereco: null,
+      numero: null,
+      complemento: null,
+      bairro: null,
+      cidade: 'Itabaiana',
+      estado: 'SE',
       alergia: 'Penicilina e Sulfa',
-      observacoes: 'Alergias graves a antibióticos da família betalactâmicos.',
+      observacoes: 'Cadastro rápido no balcão — completar documentos no próximo atendimento.',
       criado_em: '2026-10-20T09:00:00',
     },
   ],
@@ -168,9 +189,8 @@ const MOCK_DATA = {
       id: 1,
       cliente_id: 1,
       cliente_nome: 'Mariana Ribeiro Costa',
-      tipo_exame: 'Glicemia Capilar',
       data: '2026-10-20',
-      valor: 20.00,
+      itens: [{ id: 11, catalogo_id: 1, nome: 'Glicemia em jejum', valor: 10 }],
       forma_pagamento: 'PIX',
       observacoes: 'Em jejum. Resultado: 91 mg/dL (Dentro da faixa normal).',
       criado_em: '2026-10-20T09:30:00',
@@ -179,11 +199,14 @@ const MOCK_DATA = {
       id: 2,
       cliente_id: 3,
       cliente_nome: 'Fernanda Albuquerque Lima',
-      tipo_exame: 'Aferição de Pressão Arterial & Perfil Lipídico',
       data: '2026-10-21',
-      valor: 35.00,
+      itens: [
+        { id: 21, catalogo_id: 4, nome: 'Colesterol total e frações', valor: 30 },
+        { id: 22, catalogo_id: 5, nome: 'Triglicerídeos', valor: 15 },
+        { id: 23, catalogo_id: 6, nome: 'Ácido úrico', valor: 12 },
+      ],
       forma_pagamento: 'Dinheiro',
-      observacoes: 'PA: 120x80 mmHg. Colesterol Total: 182 mg/dL.',
+      observacoes: 'Colesterol Total: 182 mg/dL.',
       criado_em: '2026-10-21T15:00:00',
     },
   ],
@@ -195,6 +218,7 @@ const MOCK_DATA = {
       data_venda: '2026-10-22',
       medico_prescritor: 'Dra. Juliana Prado (CRM-SE 4589)',
       observacoes: null,
+      farmaceutico: { id: 1, nome: 'Administrador Demonstração', cargo: 'Farmacêutico Responsável', registro_profissional: 'CRF-SE 00000' },
       itens: [
         { id: 101, medicamento: 'ALPRAZOLAM 0,25 MG 30 CPRS', rms: '9000000000011', laboratorio: 'LAB DEMONSTRAÇÃO A', dose: '0,25 mg', posologia: '1 comprimido à noite', lote: 'DEMO01', validade: '02/2028', quantidade: 1 },
       ],
@@ -208,6 +232,7 @@ const MOCK_DATA = {
       data_venda: '2026-10-23',
       medico_prescritor: null,
       observacoes: 'Tomar com água.',
+      farmaceutico: { id: 1, nome: 'Administrador Demonstração', cargo: 'Farmacêutico Responsável', registro_profissional: 'CRF-SE 00000' },
       itens: [
         { id: 102, medicamento: 'AMOXICILINA 500 MG CX 21 COMP.', rms: '9000000000028', laboratorio: 'LAB DEMONSTRAÇÃO B', dose: '500 mg', posologia: '1 comprimido de 8 em 8 horas', lote: 'DEMO02', validade: '05/2028', quantidade: 1 },
         { id: 103, medicamento: 'CLONAZEPAM 2 MG 30 COMP', rms: '9000000000035', laboratorio: 'LAB DEMONSTRAÇÃO A', dose: null, posologia: null, lote: 'DEMO03', validade: '09/2027', quantidade: 2 },
@@ -241,6 +266,9 @@ const MOCK_DATA = {
       perfil: 'admin',
       modulos: CHAVES_MODULOS,
       ativo: true,
+      cargo: 'Farmacêutico Responsável',
+      registro_profissional: 'CRF-SE 00000',
+      farmaceutico: true,
       criado_em: '2026-10-01T09:00:00',
     },
     {
@@ -250,6 +278,9 @@ const MOCK_DATA = {
       perfil: 'funcionario',
       modulos: ['clientes', 'exames', 'receitas'],
       ativo: true,
+      cargo: 'Atendente',
+      registro_profissional: null,
+      farmaceutico: false,
       criado_em: '2026-10-05T14:30:00',
     },
   ],
@@ -261,7 +292,18 @@ function normalizarUsuarioDemo(u) {
   const modulos = perfil === 'admin' || !Array.isArray(u.modulos)
     ? [...CHAVES_MODULOS]
     : CHAVES_MODULOS.filter(chave => u.modulos.includes(chave));
-  return { ...u, perfil, modulos };
+  return { cargo: null, registro_profissional: null, farmaceutico: false, ...u, perfil, modulos };
+}
+
+const somaItens = itens => Math.round(itens.reduce((t, i) => t + Number(i.valor || 0), 0) * 100) / 100;
+
+/** Pedido de exames no formato da API (aceita o formato antigo, de um exame por registro). */
+function normalizarExameDemo(e) {
+  const itens = Array.isArray(e.itens)
+    ? e.itens
+    : [{ id: e.id * 10, catalogo_id: null, nome: e.tipo_exame || 'Exame', valor: Number(e.valor || 0) }];
+  const total = somaItens(itens);
+  return { ...e, itens, quantidade_exames: itens.length, tipo_exame: itens.map(i => i.nome).join('; '), valor: total, valor_total: total };
 }
 
 function demoSessaoUsuario() {
@@ -278,7 +320,10 @@ const demo = {
       if (v) lista = JSON.parse(v);
     } catch (_) {}
     lista = lista ?? structuredClone(MOCK_DATA[chave]);
-    return chave === 'usuarios' ? lista.map(normalizarUsuarioDemo) : lista;
+    if (chave === 'usuarios') return lista.map(normalizarUsuarioDemo);
+    if (chave === 'clientes') return lista.map(completarCliente);
+    if (chave === 'exames') return lista.map(normalizarExameDemo);
+    return lista;
   },
   gravar(chave, lista) {
     try {
@@ -441,6 +486,13 @@ function montarItensReceita(itens, receitaAtual = null) {
       copia = { medicamento: antigo.medicamento, rms: antigo.rms, laboratorio: antigo.laboratorio };
       id = antigo.id;
     }
+    // RMS e laboratório podem ser corrigidos só nesta receita (caixa de outro fabricante)
+    try {
+      if ('rms' in bruto) copia.rms = validarRms(bruto.rms);
+      if ('laboratorio' in bruto) copia.laboratorio = validarLaboratorio(bruto.laboratorio);
+    } catch (err) {
+      throw new ApiError(`Medicamento ${posicao}: ${err.message}`, 400);
+    }
     return {
       id,
       ...copia,
@@ -451,6 +503,174 @@ function montarItensReceita(itens, receitaAtual = null) {
       quantidade: quantidadeItem(bruto.quantidade, posicao),
     };
   });
+}
+
+// ── Exames (modo demonstração: mesmas regras do backend) ──
+const MAX_ITENS_EXAME = 30;
+const hojeLocal = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const FORMAS_PAGAMENTO = ['Dinheiro', 'Cartão de Crédito', 'Cartão de Débito', 'PIX', 'Outro'];
+
+function formaPagamento(valor) {
+  if (valor === null || valor === undefined || valor === '') return null;
+  if (!FORMAS_PAGAMENTO.includes(valor)) throw new ApiError('Forma de pagamento inválida.', 400);
+  return valor;
+}
+
+function montarItensExame(itens, pedidoAtual = null) {
+  if (!Array.isArray(itens) || !itens.length) throw new ApiError('Adicione pelo menos um exame ao pedido.', 400);
+  if (itens.length > MAX_ITENS_EXAME) throw new ApiError(`Um pedido pode ter no máximo ${MAX_ITENS_EXAME} exames.`, 400);
+  const catalogo = demo.ler('catalogo_exames');
+  const existentes = pedidoAtual?.itens || [];
+
+  return itens.map((bruto, i) => {
+    const posicao = i + 1;
+    const naoEscolhido = () => new ApiError(`Exame ${posicao}: escolha um exame da lista do catálogo.`, 400);
+    let base;
+    if (bruto?.catalogo_id !== null && bruto?.catalogo_id !== undefined) {
+      const item = catalogo.find(c => c.id === bruto.catalogo_id && c.ativo);
+      if (!item) throw naoEscolhido();
+      base = { id: Date.now() + i, catalogo_id: item.id, nome: item.nome, valor: item.valor };
+    } else {
+      const antigo = existentes.find(x => x.id === bruto?.id);
+      if (!antigo) throw naoEscolhido();
+      base = { ...antigo };
+    }
+    if (bruto.valor !== null && bruto.valor !== undefined && bruto.valor !== '') {
+      try {
+        base.valor = validarValorCatalogo(bruto.valor);
+      } catch (err) {
+        throw new ApiError(`Exame ${posicao} (${base.nome}): ${err.message}`, 400);
+      }
+    }
+    return base;
+  });
+}
+
+// ── Farmacêutico responsável (modo demonstração) ──
+const dadosResponsavel = u => ({ id: u.id, nome: u.nome, cargo: u.cargo || null, registro_profissional: u.registro_profissional || null });
+const farmaceuticosDemo = () => demo.ler('usuarios').filter(u => u.ativo && u.farmaceutico).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+
+function resolverFarmaceuticoDemo(escolhido, { obrigatorio }) {
+  if (escolhido !== null && escolhido !== undefined && escolhido !== '') {
+    const u = farmaceuticosDemo().find(x => String(x.id) === String(escolhido));
+    if (!u) throw new ApiError('Farmacêutico responsável inválido. Escolha um da lista.', 400);
+    return { trocar: true, farmaceutico: dadosResponsavel(u) };
+  }
+  if (!obrigatorio) return { trocar: false };
+  const ator = demoSessaoUsuario();
+  if (ator?.farmaceutico) return { trocar: true, farmaceutico: dadosResponsavel(ator) };
+  const lista = farmaceuticosDemo();
+  if (lista.length === 1) return { trocar: true, farmaceutico: dadosResponsavel(lista[0]) };
+  if (lista.length > 1) throw new ApiError('Selecione o farmacêutico responsável pela receita.', 400);
+  return { trocar: true, farmaceutico: null };
+}
+
+function validarProfissionais(dados, atual = {}) {
+  const r = {};
+  if ('cargo' in dados) r.cargo = textoItem(dados.cargo, 80, 'Cargo', 0);
+  if ('registro_profissional' in dados) {
+    const reg = dados.registro_profissional == null ? null : String(dados.registro_profissional).replace(/\s+/g, ' ').trim().toUpperCase();
+    if (reg && reg.length > 40) throw new ApiError('Registro profissional (CRF) deve ter no máximo 40 caracteres.', 400);
+    r.registro_profissional = reg || null;
+  }
+  if ('farmaceutico' in dados) {
+    if (typeof dados.farmaceutico !== 'boolean') throw new ApiError("O campo 'farmaceutico' deve ser verdadeiro ou falso.", 400);
+    r.farmaceutico = dados.farmaceutico;
+  }
+  const farm = 'farmaceutico' in r ? r.farmaceutico : !!atual.farmaceutico;
+  const reg = 'registro_profissional' in r ? r.registro_profissional : atual.registro_profissional;
+  if (farm && !reg) throw new ApiError('Informe o registro profissional (CRF) do farmacêutico.', 400);
+  return r;
+}
+
+// ── Relatórios (modo demonstração: mesmo formato do backend) ──
+const CATEGORIAS_RELATORIO = ['manipulacoes', 'exames', 'receitas'];
+const dinheiro = v => Math.round(Number(v || 0) * 100) / 100;
+
+function linhaRelatorio(categoria, r, clientes) {
+  const cliente = clientes.find(c => String(c.id) === String(r.cliente_id));
+  const base = { id: r.id, cliente_id: r.cliente_id, cliente_nome: cliente?.nome ?? r.cliente_nome ?? null, cliente_telefone: cliente?.telefone ?? null };
+  if (categoria === 'manipulacoes') {
+    return { ...base, data: r.data, formula: r.formula, prazo_entrega: r.prazo_entrega || null, valor: dinheiro(r.valor), forma_pagamento: r.forma_pagamento || null, observacoes: r.observacoes || null };
+  }
+  if (categoria === 'exames') {
+    return { ...base, data: r.data, exames: r.itens.map(i => i.nome).join('; '), quantidade_exames: r.itens.length, valor: dinheiro(r.valor), forma_pagamento: r.forma_pagamento || null, observacoes: r.observacoes || null };
+  }
+  const itens = r.itens || [];
+  return {
+    ...base, data: r.data_venda, medicamentos: itens.map(i => i.medicamento).join('; '), quantidade_medicamentos: itens.length,
+    unidades: itens.reduce((t, i) => t + (Number(i.quantidade) || 0), 0), medico_prescritor: r.medico_prescritor || null, farmaceutico: r.farmaceutico?.nome || null,
+  };
+}
+
+function relatorioDemo(categoria, { de, ate, pagina = 1, limite = 20, todos = false } = {}) {
+  if (!CATEGORIAS_RELATORIO.includes(categoria)) throw new ApiError('Relatório inexistente. Use manipulacoes, exames ou receitas.', 404);
+  for (const d of [de, ate]) {
+    if (d && !/^\d{4}-\d{2}-\d{2}$/.test(d)) throw new ApiError('Data inválida. Use o formato AAAA-MM-DD.', 400);
+  }
+  if (de && ate && de > ate) [de, ate] = [ate, de];
+  const campo = categoria === 'receitas' ? 'data_venda' : 'data';
+  const registros = demo.ler(categoria)
+    .filter(r => { const dia = String(r[campo] || '').slice(0, 10); return dia && (!de || dia >= de) && (!ate || dia <= ate); })
+    .sort((a, b) => (String(b[campo]).localeCompare(String(a[campo]))) || (Number(b.id) - Number(a.id)));
+  const clientes = demo.ler('clientes');
+  const total = registros.length;
+
+  const porDia = new Map();
+  registros.forEach(r => {
+    const dia = String(r[campo]).slice(0, 10);
+    const atual = porDia.get(dia) || { data: dia, quantidade: 0, valor: 0 };
+    atual.quantidade++;
+    atual.valor = dinheiro(atual.valor + Number(r.valor || 0));
+    porDia.set(dia, atual);
+  });
+  const resumo = {
+    quantidade: total,
+    clientes_atendidos: new Set(registros.map(r => String(r.cliente_id))).size,
+    por_dia: [...porDia.values()].sort((a, b) => a.data.localeCompare(b.data)).map(d => (categoria === 'receitas' ? { ...d, valor: null } : d)),
+  };
+  if (categoria !== 'receitas') {
+    const valorTotal = dinheiro(registros.reduce((t, r) => t + Number(r.valor || 0), 0));
+    resumo.valor_total = valorTotal;
+    resumo.ticket_medio = total ? dinheiro(valorTotal / total) : 0;
+    const pag = new Map();
+    registros.forEach(r => {
+      const forma = r.forma_pagamento || 'Não informado';
+      const p = pag.get(forma) || { forma, quantidade: 0, valor: 0 };
+      p.quantidade++;
+      p.valor = dinheiro(p.valor + Number(r.valor || 0));
+      pag.set(forma, p);
+    });
+    resumo.por_pagamento = [...pag.values()].sort((a, b) => b.valor - a.valor);
+  }
+  const ranking = (lista, chaveNome, extra) => {
+    const m = new Map();
+    lista.forEach(i => {
+      const atual = m.get(i[chaveNome]) || { nome: i[chaveNome], quantidade: 0, ...extra.zero };
+      atual.quantidade++;
+      extra.somar(atual, i);
+      m.set(i[chaveNome], atual);
+    });
+    return [...m.values()].sort((a, b) => b.quantidade - a.quantidade || a.nome.localeCompare(b.nome)).slice(0, 5);
+  };
+  if (categoria === 'exames') {
+    const itens = registros.flatMap(r => r.itens);
+    resumo.total_exames = itens.length;
+    resumo.mais_realizados = ranking(itens, 'nome', { zero: { valor: 0 }, somar: (a, i) => { a.valor = dinheiro(a.valor + Number(i.valor || 0)); } });
+  } else if (categoria === 'receitas') {
+    const itens = registros.flatMap(r => r.itens || []);
+    resumo.total_medicamentos = itens.length;
+    resumo.mais_dispensados = ranking(itens, 'medicamento', { zero: { unidades: 0 }, somar: (a, i) => { a.unidades += Number(i.quantidade) || 0; } });
+  }
+
+  const porPagina = Math.max(1, Math.min(Number(limite) || 20, 200));
+  const paginas = todos ? 1 : Math.ceil(total / porPagina);
+  const atual = todos ? 1 : Math.max(1, Number(pagina) || 1);
+  const fatia = todos ? registros : registros.slice((atual - 1) * porPagina, atual * porPagina);
+  return {
+    categoria, periodo: { de: de || null, ate: ate || null }, resumo, total, pagina_atual: atual, paginas,
+    itens: fatia.map(r => linhaRelatorio(categoria, r, clientes)),
+  };
 }
 
 export const api = {
@@ -495,19 +715,31 @@ export const api = {
     const q = termo.toLowerCase();
     return lista.filter(c =>
       c.nome.toLowerCase().includes(q) ||
-      c.cpf.includes(q) ||
-      c.telefone.includes(q) ||
+      (c.cpf || '').includes(q) ||
+      (c.telefone || '').includes(q) ||
       (c.email || '').toLowerCase().includes(q)
     );
   },
 
+  /** Cadastro progressivo: só nome e telefone são obrigatórios. */
   async cadastrarCliente(dados) {
     if (!MODO_DEMO) return (await request('/clientes', { method: 'POST', body: dados })).cliente;
 
-    if (demo.ler('clientes').some(c => c.cpf === dados.cpf)) {
-      throw new ApiError(`Já existe um cliente cadastrado com o CPF ${dados.cpf}.`, 400);
+    let valores;
+    try {
+      valores = validarCliente(dados, ['nome', 'telefone', 'cpf', 'rg', 'data_nascimento', 'sexo', 'email', 'cep', 'endereco', 'numero', 'complemento', 'bairro', 'cidade', 'estado', 'alergia', 'observacoes']);
+    } catch (err) {
+      throw new ApiError(err.message, 400);
     }
-    return demo.inserir('clientes', dados);
+    const dono = valores.cpf && demo.ler('clientes').find(c => c.cpf === valores.cpf);
+    if (dono) throw new ApiError(`O CPF ${valores.cpf} já pertence ao cliente ${dono.nome}.`, 400);
+    return completarCliente(demo.inserir('clientes', valores));
+  },
+
+  /** Quantidade de clientes cadastrados (sem depender do limite da página). */
+  async totalClientes() {
+    if (!MODO_DEMO) return (await request('/clientes?limite=1')).total ?? 0;
+    return demo.ler('clientes').length;
   },
 
   async obterCliente(id) {
@@ -544,18 +776,26 @@ export const api = {
     return demo.inserir('manipulacoes', dados);
   },
 
-  // --- Exames ---
+  // --- Exames (pedido com vários exames) ---
   async listarExames() {
     if (!MODO_DEMO) return (await request('/exames')).itens || [];
     return demo.ler('exames');
   },
 
-  async cadastrarExame({ catalogo_id, ...dados }) {
-    if (!MODO_DEMO) return (await request('/exames', { method: 'POST', body: { catalogo_id, ...dados } })).exame;
-    const item = demo.ler('catalogo_exames').find(e => e.id === catalogo_id && e.ativo);
-    if (!item) throw new ApiError('Escolha um exame da lista do catálogo.', 400);
-    // nome e valor vêm do catálogo, nunca do formulário
-    return demo.inserir('exames', { ...dados, tipo_exame: item.nome, valor: item.valor });
+  async cadastrarExame({ itens, ...dados }) {
+    if (!MODO_DEMO) return (await request('/exames', { method: 'POST', body: { ...dados, itens } })).exame;
+    const cliente = demo.ler('clientes').find(c => String(c.id) === String(dados.cliente_id));
+    if (!cliente) throw new ApiError(`Cliente com ID ${dados.cliente_id} não encontrado.`, 400);
+    const lista = montarItensExame(itens);
+    const novo = demo.inserir('exames', {
+      cliente_id: cliente.id,
+      cliente_nome: cliente.nome,
+      data: dados.data || hojeLocal(),
+      forma_pagamento: formaPagamento(dados.forma_pagamento),
+      observacoes: textoItem(dados.observacoes, 5000, 'Observações', 0),
+      itens: lista,
+    });
+    return normalizarExameDemo(novo);
   },
 
   // --- Receitas ---
@@ -567,8 +807,11 @@ export const api = {
   async cadastrarReceita({ itens, ...dados }) {
     if (!MODO_DEMO) return (await request('/receitas', { method: 'POST', body: { ...dados, itens } })).receita;
     const lista = montarItensReceita(itens);
+    const { farmaceutico } = resolverFarmaceuticoDemo(dados.farmaceutico_id, { obrigatorio: true });
+    const { farmaceutico_id: _ignorado, ...resto } = dados;
     return demo.inserir('receitas', {
-      ...dados,
+      ...resto,
+      farmaceutico,
       medico_prescritor: textoItem(dados.medico_prescritor, 200, 'Médico prescritor', 0) ?? null,
       observacoes: textoItem(dados.observacoes, 2000, 'Observações', 0) ?? null,
       itens: lista,
@@ -577,20 +820,35 @@ export const api = {
   },
 
   // --- Editar e excluir ---
+  /** Atualiza só os campos enviados (completar o cadastro aos poucos). */
   async atualizarCliente(id, dados) {
-    if (MODO_DEMO) {
-      if (dados.cpf && demo.ler('clientes').some(c => c.cpf === dados.cpf && String(c.id) !== String(id))) {
-        throw new ApiError(`O CPF ${dados.cpf} já pertence a outro cliente.`, 400);
-      }
-      const atualizado = demo.atualizar('clientes', id, dados);
-      // Nos dados fictícios o nome do cliente é copiado em cada registro: mantém em sincronia.
-      DEMO_HISTORICO.forEach(chave => {
-        demo.gravar(chave, demo.ler(chave).map(r =>
-          String(r.cliente_id) === String(id) ? { ...r, cliente_nome: atualizado.nome } : r));
-      });
-      return atualizado;
+    if (!MODO_DEMO) return atualizarRegistro('clientes', 'clientes', 'cliente', id, dados);
+
+    const atual = demo.ler('clientes').find(c => String(c.id) === String(id));
+    if (!atual) throw new ApiError('Cliente não encontrado.', 404);
+    const campos = Object.keys(dados).filter(c => c !== 'cpf' || (dados.cpf || null) !== atual.cpf);
+    let valores;
+    try {
+      valores = validarCliente(dados, campos.filter(c => c !== 'id'));
+    } catch (err) {
+      throw new ApiError(err.message, 400);
     }
-    return atualizarRegistro('clientes', 'clientes', 'cliente', id, dados);
+    if (valores.cpf) {
+      const dono = demo.ler('clientes').find(c => c.cpf === valores.cpf && String(c.id) !== String(id));
+      if (dono) throw new ApiError(`O CPF ${valores.cpf} já pertence ao cliente ${dono.nome}.`, 400);
+    }
+    // demo.atualizar ignora `undefined`; aqui null significa "apagar o campo"
+    const lista = demo.ler('clientes');
+    const i = lista.findIndex(c => String(c.id) === String(id));
+    lista[i] = completarCliente({ ...lista[i], ...valores, id: lista[i].id });
+    demo.gravar('clientes', lista);
+    const atualizado = lista[i];
+    // Nos dados fictícios o nome do cliente é copiado em cada registro: mantém em sincronia.
+    DEMO_HISTORICO.forEach(chave => {
+      demo.gravar(chave, demo.ler(chave).map(r =>
+        String(r.cliente_id) === String(id) ? { ...r, cliente_nome: atualizado.nome } : r));
+    });
+    return atualizado;
   },
 
   async excluirCliente(id) {
@@ -603,9 +861,17 @@ export const api = {
   atualizarManipulacao: (id, dados) => atualizarRegistro('manipulacoes', 'manipulacoes', 'manipulacao', id, dados),
   excluirManipulacao: id => excluirRegistro('manipulacoes', 'manipulacoes', id),
 
-  // Nome e valor do exame não mudam depois de registrados (só data, pagamento e observações).
-  atualizarExame(id, { data, forma_pagamento, observacoes }) {
-    return atualizarRegistro('exames', 'exames', 'exame', id, { data, forma_pagamento, observacoes });
+  // O nome de cada exame vem do catálogo (e não muda); o valor pode ser ajustado.
+  async atualizarExame(id, dados) {
+    if (!MODO_DEMO) return atualizarRegistro('exames', 'exames', 'exame', id, dados);
+    const atual = demo.ler('exames').find(e => String(e.id) === String(id));
+    if (!atual) throw new ApiError('Exame não encontrado.', 404);
+    const mudancas = {};
+    if (dados.itens !== undefined) mudancas.itens = montarItensExame(dados.itens, atual);
+    if (dados.data) mudancas.data = dados.data;
+    if ('forma_pagamento' in dados) mudancas.forma_pagamento = formaPagamento(dados.forma_pagamento);
+    if ('observacoes' in dados) mudancas.observacoes = textoItem(dados.observacoes, 5000, 'Observações', 0);
+    return normalizarExameDemo(demo.atualizar('exames', id, mudancas));
   },
   excluirExame: id => excluirRegistro('exames', 'exames', id),
 
@@ -618,6 +884,8 @@ export const api = {
     if ('medico_prescritor' in dados) mudancas.medico_prescritor = textoItem(dados.medico_prescritor, 200, 'Médico prescritor', 0);
     if ('observacoes' in dados) mudancas.observacoes = textoItem(dados.observacoes, 2000, 'Observações', 0);
     if (dados.data_venda) mudancas.data_venda = dados.data_venda;
+    const resp = resolverFarmaceuticoDemo(dados.farmaceutico_id, { obrigatorio: false });
+    if (resp.trocar) mudancas.farmaceutico = resp.farmaceutico;
     if (itens !== undefined) {
       mudancas.itens = montarItensReceita(itens, atual);
       mudancas.medicamentos = resumoItens(mudancas.itens);
@@ -632,11 +900,11 @@ export const api = {
     return demo.ler('usuarios');
   },
 
-  async cadastrarUsuario({ nome, email, senha, perfil, modulos }) {
+  async cadastrarUsuario({ nome, email, senha, perfil, modulos, ...profissionais }) {
     if (!MODO_DEMO) {
-      return (await request('/auth/cadastro', { method: 'POST', body: { nome, email, senha, perfil, modulos } })).usuario;
+      return (await request('/auth/cadastro', { method: 'POST', body: { nome, email, senha, perfil, modulos, ...profissionais } })).usuario;
     }
-    const dados = validarUsuarioDemo({ nome, email, perfil, modulos });
+    const dados = { ...validarUsuarioDemo({ nome, email, perfil, modulos }), ...validarProfissionais(profissionais) };
     if ((senha || '').length < 6) throw new ApiError('Senha deve ter pelo menos 6 caracteres.', 400);
     if (demo.ler('usuarios').some(u => u.email === dados.email)) throw new ApiError('E-mail já cadastrado.', 409);
     // No modo demonstração a senha não é guardada: não existe login com senha.
@@ -663,8 +931,30 @@ export const api = {
       perfil: 'perfil' in dados ? dados.perfil : atual.perfil,
       modulos: 'modulos' in dados ? dados.modulos : atual.modulos,
     });
+    const profissionais = validarProfissionais(dados, atual);
     const { senha: _senha, ...resto } = dados;
-    return demo.atualizar('usuarios', id, { ...resto, nome: final.nome, perfil: final.perfil, modulos: final.modulos });
+    return demo.atualizar('usuarios', id, { ...resto, ...profissionais, nome: final.nome, perfil: final.perfil, modulos: final.modulos });
+  },
+
+  /** Farmacêuticos ativos (para escolher o responsável da receita). */
+  async listarFarmaceuticos() {
+    if (!MODO_DEMO) return (await request('/usuarios/farmaceuticos')).itens || [];
+    return farmaceuticosDemo().map(dadosResponsavel);
+  },
+
+  // --- Relatórios por categoria ---
+  /** `categoria`: manipulacoes | exames | receitas. Filtros: { de, ate, pagina, limite, todos }. */
+  async relatorio(categoria, { de, ate, pagina = 1, limite = 20, todos = false } = {}) {
+    if (!MODO_DEMO) {
+      const qs = new URLSearchParams();
+      if (de) qs.set('de', de);
+      if (ate) qs.set('ate', ate);
+      qs.set('pagina', String(pagina));
+      qs.set('limite', String(limite));
+      if (todos) qs.set('todos', 'true');
+      return request(`/relatorios/${segmento(categoria)}?${qs}`);
+    }
+    return relatorioDemo(categoria, { de, ate, pagina, limite, todos });
   },
 
   // --- Catálogo de exames ---
@@ -743,7 +1033,8 @@ export const api = {
   },
 
   // --- Catálogo de medicamentos ---
-  // Todos podem consultar; criar, editar, desativar e importar é só do administrador (a API confere).
+  // Quem lança receitas consulta e cadastra (produto recém-chegado); editar, desativar e importar é só
+  // do administrador (a API confere). Já existente e ativo: erro 409 com o medicamento em `err.dados.medicamento`.
   async listarCatalogoMedicamentos({ apenasAtivos = false } = {}) {
     if (!MODO_DEMO) return (await request(`/catalogo-medicamentos${apenasAtivos ? '?ativos=true' : ''}`)).itens || [];
     return demo.ler('catalogo_medicamentos')
@@ -757,7 +1048,8 @@ export const api = {
     }
     const dados = { descricao: validarDescricaoMedicamento(descricao), rms: validarRms(rms), laboratorio: validarLaboratorio(laboratorio) };
     const existente = demo.ler('catalogo_medicamentos').find(m => chaveMedicamento(m.rms, m.descricao) === chaveMedicamento(dados.rms, dados.descricao));
-    if (existente) throw new ApiError(`Já existe '${existente.descricao}' com esse RMS${existente.ativo ? '.' : ' (desativado). Reative-o na lista.'}`, 400);
+    if (existente?.ativo) throw new ApiError(`Já existe '${existente.descricao}' com esse RMS.`, 409, { medicamento: existente });
+    if (existente) throw new ApiError(`Já existe '${existente.descricao}' com esse RMS (desativado). Reative-o na lista.`, 400);
     return demo.inserir('catalogo_medicamentos', { ...dados, ativo: true, atualizado_em: new Date().toISOString() });
   },
 

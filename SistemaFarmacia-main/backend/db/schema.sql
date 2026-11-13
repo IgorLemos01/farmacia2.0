@@ -6,8 +6,10 @@
 --    1. usuarios
 --    2. clientes
 --    3. manipulacoes   (depende de clientes)
---    4. exames         (depende de clientes)
---    5. receitas       (depende de clientes)
+--    4. exames         (depende de clientes) + exame_itens
+--    5. receitas       (depende de clientes e usuarios) + receita_itens
+--
+--  Banco já existente (versão anterior)? Use db/migracoes/2026-11-feedback_mysql.sql
 -- =============================================================
 
 -- Cria o banco caso ainda não exista
@@ -29,6 +31,9 @@ CREATE TABLE IF NOT EXISTS usuarios (
     perfil      ENUM('admin', 'funcionario') NOT NULL DEFAULT 'funcionario',
     modulos     VARCHAR(200)    NOT NULL DEFAULT '',
     ativo       TINYINT(1)      NOT NULL DEFAULT 1,
+    cargo                 VARCHAR(80)  NULL COMMENT 'Ex.: Farmacêutico Responsável',
+    registro_profissional VARCHAR(40)  NULL COMMENT 'Ex.: CRF-SE 1234',
+    farmaceutico          TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '1 = pode ser o responsável das receitas',
     criado_em   DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (id),
@@ -37,22 +42,30 @@ CREATE TABLE IF NOT EXISTS usuarios (
 
 
 -- -------------------------------------------------------------
--- 2. CLIENTES — Cadastro de clientes da farmácia
+-- 2. CLIENTES — Cadastro progressivo: só nome e telefone são obrigatórios
+--    (no balcão o cliente nem sempre tem documentos; o resto é completado depois).
+--    CPF é único quando informado (o MySQL permite vários NULL num índice único).
 -- -------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS clientes (
     id               INT          NOT NULL AUTO_INCREMENT,
 
-    -- Campos obrigatórios (NOT NULL)
+    -- Obrigatórios
     nome             VARCHAR(150) NOT NULL,
-    cpf              VARCHAR(14)  NOT NULL COMMENT 'Formato: 000.000.000-00',
-    rg               VARCHAR(20)  NOT NULL,
-    data_nascimento  DATE         NOT NULL,
-    sexo             ENUM('M', 'F', 'Outro') NOT NULL,
-    telefone         VARCHAR(20)  NOT NULL,
-    email            VARCHAR(150) NOT NULL,
-    endereco         VARCHAR(300) NOT NULL,
+    telefone         VARCHAR(20)  NOT NULL COMMENT 'WhatsApp / telefone principal',
 
-    -- Campos opcionais
+    -- Opcionais
+    cpf              VARCHAR(14)  NULL COMMENT 'Formato: 000.000.000-00',
+    rg               VARCHAR(20)  NULL,
+    data_nascimento  DATE         NULL,
+    sexo             VARCHAR(10)  NULL COMMENT 'M, F ou Outro',
+    email            VARCHAR(150) NULL,
+    cep              VARCHAR(9)   NULL,
+    endereco         VARCHAR(300) NULL COMMENT 'Rua / logradouro',
+    numero           VARCHAR(20)  NULL,
+    complemento      VARCHAR(100) NULL,
+    bairro           VARCHAR(100) NULL,
+    cidade           VARCHAR(100) NULL,
+    estado           CHAR(2)      NULL,
     alergia          TEXT         NULL COMMENT 'Alergias conhecidas do cliente',
     observacoes      TEXT         NULL,
 
@@ -94,13 +107,13 @@ CREATE TABLE IF NOT EXISTS manipulacoes (
 
 
 -- -------------------------------------------------------------
--- 4. EXAMES — Exames realizados para clientes
+-- 4. EXAMES — Pedido de exames de um atendimento (vários exames por visita)
+--    `valor` = total do pedido (soma de EXAME_ITENS), guardado para relatórios.
 -- -------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS exames (
     id              INT             NOT NULL AUTO_INCREMENT,
     cliente_id      INT             NOT NULL,
 
-    tipo_exame      VARCHAR(200)    NOT NULL,
     data            DATE            NOT NULL DEFAULT (CURRENT_DATE),
     valor           DECIMAL(10, 2)  NULL,
     forma_pagamento ENUM(
@@ -115,9 +128,30 @@ CREATE TABLE IF NOT EXISTS exames (
 
     PRIMARY KEY (id),
     INDEX idx_exames_cliente (cliente_id),
+    INDEX idx_exames_data (data),
     CONSTRAINT fk_exames_cliente
         FOREIGN KEY (cliente_id) REFERENCES clientes (id)
         ON UPDATE CASCADE ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- -------------------------------------------------------------
+-- 4.1 EXAME_ITENS — Cada exame do pedido. O nome é cópia do catálogo; o valor vem
+--     do catálogo mas pode ser ajustado no atendimento.
+-- -------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS exame_itens (
+    id              INT             NOT NULL AUTO_INCREMENT,
+    exame_id        INT             NOT NULL,
+    ordem           INT             NOT NULL DEFAULT 0,
+    catalogo_id     INT             NULL,
+    nome            VARCHAR(200)    NOT NULL,
+    valor           DECIMAL(10, 2)  NOT NULL DEFAULT 0,
+
+    PRIMARY KEY (id),
+    INDEX idx_exame_itens_exame (exame_id),
+    CONSTRAINT fk_exame_itens_exame
+        FOREIGN KEY (exame_id) REFERENCES exames (id)
+        ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -133,10 +167,16 @@ CREATE TABLE IF NOT EXISTS receitas (
     data_venda          DATE         NOT NULL DEFAULT (CURRENT_DATE),
     medico_prescritor   VARCHAR(200) NULL,
     observacoes         TEXT         NULL,
+    -- Farmacêutico responsável: cópia do usuário no momento da receita
+    farmaceutico_id       INT          NULL,
+    farmaceutico_nome     VARCHAR(120) NULL,
+    farmaceutico_cargo    VARCHAR(80)  NULL,
+    farmaceutico_registro VARCHAR(40)  NULL,
     criado_em           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (id),
     INDEX idx_receitas_cliente (cliente_id),
+    CONSTRAINT fk_receitas_farmaceutico FOREIGN KEY (farmaceutico_id) REFERENCES usuarios (id),
     CONSTRAINT fk_receitas_cliente
         FOREIGN KEY (cliente_id) REFERENCES clientes (id)
         ON UPDATE CASCADE ON DELETE RESTRICT
@@ -145,8 +185,8 @@ CREATE TABLE IF NOT EXISTS receitas (
 
 -- -------------------------------------------------------------
 -- 5.1 RECEITA_ITENS — Medicamentos de cada receita
---     RMS, medicamento e laboratório são uma CÓPIA do catálogo no momento da
---     receita: alterar o catálogo depois não muda receitas já emitidas.
+--     Medicamento, RMS e laboratório são uma CÓPIA do catálogo no momento da receita
+--     (RMS e laboratório podem ser corrigidos no lançamento, ex.: caixa de outro fabricante).
 -- -------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS receita_itens (
     id              INT          NOT NULL AUTO_INCREMENT,

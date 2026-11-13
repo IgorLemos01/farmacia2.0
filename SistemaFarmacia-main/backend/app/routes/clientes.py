@@ -1,27 +1,36 @@
 from flask import request
 from flask_restx import Namespace, Resource, fields
 from app.auth_utils import modulo_required
-from app.modulos import MODULOS_QUE_LEEM_CLIENTES
+from app.modulos import MODULOS_QUE_CADASTRAM_CLIENTES, MODULOS_QUE_LEEM_CLIENTES
 
-from app.routes.campos import NumeroOpcional, TextoOpcional
+from app.routes.campos import TextoOpcional
 from app.services.cliente_service import ClienteService
 
-ns = Namespace("clientes", description="Gestão de clientes da farmácia")
+ns = Namespace("clientes", description="Gestão de clientes da farmácia (cadastro progressivo)")
 
-# --- Modelos do Swagger ---
+_CAMPOS_OPCIONAIS = {
+    "cpf": TextoOpcional(required=False, example="123.456.789-09", description="CPF (único quando informado)"),
+    "rg": TextoOpcional(required=False, example="12.345.678-9"),
+    "data_nascimento": TextoOpcional(required=False, example="1990-05-15", description="Formato AAAA-MM-DD"),
+    "sexo": TextoOpcional(required=False, example="M", enum=["M", "F", "Outro"]),
+    "email": TextoOpcional(required=False, example="joao.silva@email.com"),
+    "cep": TextoOpcional(required=False, example="49000-000"),
+    "endereco": TextoOpcional(required=False, example="Rua das Flores", description="Rua / logradouro"),
+    "numero": TextoOpcional(required=False, example="123"),
+    "complemento": TextoOpcional(required=False, example="Apto 2"),
+    "bairro": TextoOpcional(required=False, example="Centro"),
+    "cidade": TextoOpcional(required=False, example="Aracaju"),
+    "estado": TextoOpcional(required=False, example="SE", description="Sigla da UF"),
+    "alergia": TextoOpcional(required=False, example="Dipirona, Penicilina", description="Alergias conhecidas"),
+    "observacoes": TextoOpcional(required=False, example="Cliente prefere contato via WhatsApp"),
+}
+
 modelo_cliente_entrada = ns.model(
     "ClienteEntrada",
     {
         "nome": fields.String(required=True, example="João Silva", description="Nome completo"),
-        "cpf": fields.String(required=True, example="123.456.789-00", description="CPF único"),
-        "rg": fields.String(required=True, example="12.345.678-9", description="RG"),
-        "data_nascimento": fields.String(required=True, example="1990-05-15", description="Formato AAAA-MM-DD"),
-        "sexo": fields.String(required=True, example="M", enum=["M", "F", "Outro"]),
-        "telefone": fields.String(required=True, example="(79) 99999-8888"),
-        "email": fields.String(required=True, example="joao.silva@email.com"),
-        "endereco": fields.String(required=True, example="Rua das Flores, 123, Centro"),
-        "alergia": TextoOpcional(required=False, example="Dipirona, Penicilina", description="Alergias conhecidas"),
-        "observacoes": TextoOpcional(required=False, example="Cliente prefere contato via WhatsApp"),
+        "telefone": fields.String(required=True, example="(79) 99999-8888", description="WhatsApp / telefone principal"),
+        **_CAMPOS_OPCIONAIS,
     },
 )
 
@@ -29,15 +38,8 @@ modelo_cliente_edicao = ns.model(
     "ClienteEdicao",
     {
         "nome": TextoOpcional(required=False, example="João Silva"),
-        "cpf": TextoOpcional(required=False, example="123.456.789-00"),
-        "rg": TextoOpcional(required=False, example="12.345.678-9"),
-        "data_nascimento": TextoOpcional(required=False, example="1990-05-15"),
-        "sexo": TextoOpcional(required=False, example="M", enum=["M", "F", "Outro"]),
         "telefone": TextoOpcional(required=False, example="(79) 99999-8888"),
-        "email": TextoOpcional(required=False, example="joao.silva@email.com"),
-        "endereco": TextoOpcional(required=False, example="Rua das Flores, 123, Centro"),
-        "alergia": TextoOpcional(required=False, example="Dipirona, Penicilina"),
-        "observacoes": TextoOpcional(required=False, example="Cliente prefere contato via WhatsApp"),
+        **_CAMPOS_OPCIONAIS,
     },
 )
 
@@ -51,7 +53,7 @@ class ClienteListaCriacao(Resource):
         params={
             "q": "Termo de busca (nome, CPF, telefone ou email)",
             "pagina": "Número da página (padrão 1)",
-            "limite": "Quantidade de itens por página (padrão 50)",
+            "limite": "Quantidade de itens por página (padrão 50, máximo 200)",
         },
     )
     def get(self):
@@ -63,17 +65,19 @@ class ClienteListaCriacao(Resource):
         resultado = ClienteService.listar(busca=termo, limite=limite, pagina=pagina)
         return resultado, 200
 
-    @modulo_required('clientes')
+    @modulo_required(*MODULOS_QUE_CADASTRAM_CLIENTES)
     @ns.expect(modelo_cliente_entrada, validate=True)
-    @ns.doc(description="Cadastra um novo cliente na farmácia.", security="Bearer")
+    @ns.doc(
+        description="Cadastra um novo cliente. Obrigatórios: nome e telefone; o resto pode ser completado depois.",
+        security="Bearer",
+    )
     def post(self):
         """Cadastrar novo cliente"""
-        dados = ns.payload
         try:
-            cliente = ClienteService.cadastrar(dados)
-            return {"mensagem": "Cliente cadastrado com sucesso.", "cliente": cliente.to_dict()}, 201
+            cliente = ClienteService.cadastrar(ns.payload)
         except ValueError as e:
             ns.abort(400, str(e))
+        return {"mensagem": "Cliente cadastrado com sucesso.", "cliente": cliente.to_dict()}, 201
 
 
 @ns.route("/<int:id>")
@@ -88,17 +92,21 @@ class ClienteDetalhe(Resource):
             ns.abort(404, "Cliente não encontrado.")
         return cliente.to_dict(), 200
 
-    @modulo_required('clientes')
+    @modulo_required(*MODULOS_QUE_CADASTRAM_CLIENTES)
     @ns.expect(modelo_cliente_edicao, validate=False)
-    @ns.doc(description="Atualiza dados de um cliente existente.", security="Bearer")
+    @ns.doc(
+        description="Atualiza (ou completa) os dados de um cliente. Só os campos enviados são alterados.",
+        security="Bearer",
+    )
     def put(self, id):
-        """Atualizar cliente"""
-        dados = ns.payload
+        """Atualizar / completar cliente"""
         try:
-            cliente = ClienteService.atualizar(id, dados)
-            return {"mensagem": "Cliente atualizado com sucesso.", "cliente": cliente.to_dict()}, 200
+            cliente = ClienteService.atualizar(id, ns.payload or {})
+        except LookupError as e:
+            ns.abort(404, str(e))
         except ValueError as e:
             ns.abort(400, str(e))
+        return {"mensagem": "Cliente atualizado com sucesso.", "cliente": cliente.to_dict()}, 200
 
     @modulo_required('clientes')
     @ns.doc(description="Remove um cliente (apenas se não houver registros vinculados).", security="Bearer")
@@ -106,9 +114,11 @@ class ClienteDetalhe(Resource):
         """Excluir cliente"""
         try:
             ClienteService.deletar(id)
-            return {"mensagem": "Cliente removido com sucesso."}, 200
+        except LookupError as e:
+            ns.abort(404, str(e))
         except ValueError as e:
             ns.abort(400, str(e))
+        return {"mensagem": "Cliente removido com sucesso."}, 200
 
 
 @ns.route("/<int:id>/dossie")
@@ -123,5 +133,5 @@ class ClienteDossie(Resource):
         """Obter prontuário/dossiê completo do cliente"""
         try:
             return ClienteService.obter_dossie(id), 200
-        except ValueError as e:
+        except LookupError as e:
             ns.abort(404, str(e))

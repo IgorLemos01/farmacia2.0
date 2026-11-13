@@ -18,8 +18,9 @@ DirectoryIndex index.html
   Header always set X-Content-Type-Options "nosniff"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
   Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+  # frame-src blob: permite imprimir a ficha da receita (PDF gerado no navegador).
   # Ao publicar a API, adicione o domínio dela em connect-src (ex.: connect-src 'self' https://api.seudominio.com.br)
-  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; img-src 'self' data: https:; frame-src https://www.google.com; frame-ancestors 'none';"
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; img-src 'self' data: https:; frame-src blob: https://www.google.com; frame-ancestors 'none';"
 
   # Arquivos com hash no nome (gerados pelo build) nunca mudam: cache de 1 ano
   <FilesMatch "-[A-Za-z0-9_-]{8}\.(js|css|png|jpg|jpeg|webp|svg|woff2?)$">

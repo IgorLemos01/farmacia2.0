@@ -28,3 +28,10 @@ def normalizar_modulos(valor) -> list[str]:
             raise ValueError(f"Módulo inválido: {modulo!r}.")
         escolhidos.add(modulo)
     return [m for m in MODULOS if m in escolhidos]
+
+
+# Quem pode CRIAR e COMPLETAR o cadastro de um cliente: além do módulo Clientes, quem atende
+# no balcão (manipulação, exames e receitas) precisa cadastrar o paciente na hora, só com nome
+# e telefone, e completar os dados em atendimentos futuros. Excluir e abrir o dossiê continua
+# exigindo o módulo "clientes".
+MODULOS_QUE_CADASTRAM_CLIENTES = ("clientes", "manipulacoes", "exames", "receitas")

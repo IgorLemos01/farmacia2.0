@@ -4,6 +4,7 @@ const guardar = (chave, lista) => localStorage.setItem('fc_demo_' + chave, JSON.
 const ler = chave => JSON.parse(localStorage.getItem('fc_demo_' + chave));
 const campo = id => document.getElementById(id);
 const enviar = id => campo(id).dispatchEvent(new Event('submit', { cancelable: true }));
+const cartao = () => document.querySelector('#rec_paciente_area .paciente-card');
 
 const CLIENTES = [
   { id: 1, nome: 'Igor Lemos', cpf: '123.456.789-00', rg: '36452718', data_nascimento: '1999-10-01', telefone: '(79) 98845-3518', sexo: 'M', email: 'i@x.com', endereco: 'R' },
@@ -23,7 +24,8 @@ async function montar() {
   vi.resetModules();
   vi.stubEnv('VITE_API_URL', '');
   baixarPdf = vi.fn(async () => 'receita.pdf');
-  vi.doMock('../src/js/pdf.js', async () => ({ ...(await vi.importActual('../src/js/pdf.js')), baixarPdfReceita: baixarPdf }));
+  // baixar e imprimir usam o mesmo "gerador" falso
+  vi.doMock('../src/js/pdf.js', async () => ({ ...(await vi.importActual('../src/js/pdf.js')), baixarPdfReceita: baixarPdf, imprimirPdfReceita: baixarPdf }));
   const { renderReceitas } = await import('../src/js/views/receitas.js');
   document.body.innerHTML = '<div id="c"></div>';
   const container = document.getElementById('c');
@@ -113,12 +115,13 @@ describe('nova receita', () => {
     campo('btnAbrirModalReceita').click();
     expect(campo('tituloModalReceita').textContent).toBe('Nova Receita');
     expect(itens()).toHaveLength(1);
-    expect(campo('rec_paciente_card').hidden).toBe(true);
+    expect(cartao().hidden).toBe(true);
     for (const seletor of ['.med-nome', '.med-dose', '.med-posologia', '.med-rms', '.med-lote', '.med-validade', '.med-laboratorio', '.med-quant']) {
       expect(itens()[0].querySelector(seletor), seletor).not.toBeNull();
     }
     expect(campo('rec_medico').required).toBe(false);          // médico é opcional
-    expect(campo('btnSalvarPdfReceita').textContent).toBe('Salvar e gerar PDF');
+    expect(campo('btnSalvarImprimirReceita').textContent).toBe('Salvar e imprimir');
+    expect(itens()[0].querySelector('.med-dose').placeholder).toContain('opcional');
   });
 
   it('escolher o paciente mostra o cartão com os dados; o "x" desfaz', async () => {
@@ -126,18 +129,18 @@ describe('nova receita', () => {
     campo('btnAbrirModalReceita').click();
     await digitarEEscolher(campo('rec_paciente'), 'igor', 'Igor Lemos');
 
-    const cartao = campo('rec_paciente_card');
-    expect(cartao.hidden).toBe(false);
-    for (const dado of ['Igor Lemos', '123.456.789-00', '36452718', '01/10/1999', '(79) 98845-3518']) expect(cartao.textContent).toContain(dado);
+    const card = cartao();
+    expect(card.hidden).toBe(false);
+    for (const dado of ['Igor Lemos', '123.456.789-00', '36452718', '01/10/1999', '(79) 98845-3518']) expect(card.textContent).toContain(dado);
     expect(campo('rec_paciente').readOnly).toBe(true);
 
-    campo('rec_paciente_limpar').click();
-    expect(cartao.hidden).toBe(true);
+    cartao().querySelector('[data-trocar]').click();
+    expect(card.hidden).toBe(true);
     expect(campo('rec_paciente').value).toBe('');
     expect(campo('rec_paciente').readOnly).toBe(false);
   });
 
-  it('escolher o medicamento puxa RMS e laboratório (travados); desativados não aparecem', async () => {
+  it('escolher o medicamento puxa RMS e laboratório (editáveis); desativados não aparecem', async () => {
     await montar();
     campo('btnAbrirModalReceita').click();
     const item = itens()[0];
@@ -152,8 +155,8 @@ describe('nova receita', () => {
     expect(nomeDoItem(item).value).toBe('ALPRAZOLAM 0,25 MG 30 CPRS');
     expect(item.querySelector('.med-rms').value).toBe('1023506630034');
     expect(item.querySelector('.med-laboratorio').value).toBe('EMS INDUSTRIA FARMACEUTICA LTDA');
-    expect(item.querySelector('.med-rms').readOnly).toBe(true);
-    expect(item.querySelector('.med-laboratorio').readOnly).toBe(true);
+    expect(item.querySelector('.med-rms').readOnly).toBe(false);
+    expect(item.querySelector('.med-laboratorio').readOnly).toBe(false);
   });
 
   it('buscar também funciona pelo RMS ou pelo laboratório', async () => {
@@ -254,12 +257,12 @@ describe('nova receita', () => {
     expect(ler('receitas')[0].medico_prescritor).toBeNull();
   });
 
-  it('"Salvar e gerar PDF" salva e entrega ao gerador a receita com os itens e os dados do paciente', async () => {
+  it('"Salvar e imprimir" salva e entrega ao gerador a receita com os itens e os dados do paciente', async () => {
     await montar();
     campo('btnAbrirModalReceita').click();
     await digitarEEscolher(campo('rec_paciente'), 'igor', 'Igor Lemos');
     await escolherMedicamento(itens()[0], 'alprazol', 'ALPRAZOLAM');
-    campo('btnSalvarPdfReceita').click();
+    campo('btnSalvarImprimirReceita').click();
 
     await vi.waitFor(() => expect(baixarPdf).toHaveBeenCalledOnce());
     const [receita, paciente] = baixarPdf.mock.calls[0];
@@ -274,7 +277,7 @@ describe('nova receita', () => {
     campo('btnAbrirModalReceita').click();
     await digitarEEscolher(campo('rec_paciente'), 'igor', 'Igor Lemos');
     await escolherMedicamento(itens()[0], 'alprazol', 'ALPRAZOLAM');
-    campo('btnSalvarPdfReceita').click();
+    campo('btnSalvarImprimirReceita').click();
     await vi.waitFor(() => expect(alerta).toHaveBeenCalled());
     expect(alerta.mock.calls[0][0]).toContain('receita foi salva');
     expect(ler('receitas')).toHaveLength(1);
@@ -285,7 +288,7 @@ describe('nova receita', () => {
     campo('btnAbrirModalReceita').click();
     await escolherMedicamento(itens()[0], 'alprazol', 'ALPRAZOLAM');
     enviar('formReceita');
-    await vi.waitFor(() => expect(alerta).toHaveBeenCalledWith('Escolha o paciente.'));
+    await vi.waitFor(() => expect(alerta).toHaveBeenCalledWith('Escolha o paciente (ou cadastre um novo pela busca).'));
     expect(ler('receitas')).toEqual([]);
   });
 
@@ -299,7 +302,7 @@ describe('nova receita', () => {
     nomeDoItem(itens()[1]).dispatchEvent(new Event('input', { bubbles: true }));
     enviar('formReceita');
     await vi.waitFor(() => expect(alerta).toHaveBeenCalled());
-    expect(alerta.mock.calls[0][0]).toBe('Medicamento 2: escolha um medicamento da lista do catálogo.');
+    expect(alerta.mock.calls[0][0]).toBe('Medicamento 2: escolha um medicamento da lista ou use "+ Cadastrar novo medicamento".');
     expect(ler('receitas')).toEqual([]);
   });
 
@@ -325,13 +328,12 @@ describe('nova receita', () => {
     expect(ler('receitas')).toEqual([]);
   });
 
-  it('catálogo vazio avisa e bloqueia o cadastro', async () => {
+  it('catálogo vazio orienta a cadastrar o medicamento na hora', async () => {
     guardar('catalogo_medicamentos', []);
     await montar();
     campo('btnAbrirModalReceita').click();
-    expect(campo('rec_dica_catalogo').textContent).toContain('Catálogo de Medicamentos');
-    expect(campo('btnSalvarReceita').disabled).toBe(true);
-    expect(campo('btnSalvarPdfReceita').disabled).toBe(true);
+    expect(campo('rec_dica_catalogo').textContent).toContain('+ Cadastrar novo medicamento');
+    expect(campo('btnSalvarReceita').disabled).toBe(false);
   });
 });
 
@@ -349,11 +351,11 @@ describe('editar, excluir e PDF da lista', () => {
   it('abre preenchida, com o paciente travado (sem "x")', async () => {
     const c = await montar();
     c.querySelector('[data-acao="editar"]').click();
-    await vi.waitFor(() => expect(campo('rec_paciente_card').hidden).toBe(false));
+    await vi.waitFor(() => expect(cartao().hidden).toBe(false));
 
     expect(campo('tituloModalReceita').textContent).toBe('Editar Receita');
-    expect(campo('rec_paciente_card').textContent).toContain('Igor Lemos');
-    expect(campo('rec_paciente_limpar')).toBeNull();
+    expect(cartao().textContent).toContain('Igor Lemos');
+    expect(cartao().querySelector('[data-trocar]')).toBeNull();
     expect(campo('rec_paciente').readOnly).toBe(true);
     expect(campo('rec_data').value).toBe('2026-10-20');
     expect(campo('rec_medico').value).toBe('Dr. A');
@@ -369,7 +371,7 @@ describe('editar, excluir e PDF da lista', () => {
     guardar('catalogo_medicamentos', [med(1, 'ALPRAZOLAM 0,25 MG 30 CPRS', '9999999999999', 'LAB NOVO', false), CATALOGO[1]]);
     const c = await montar();
     c.querySelector('[data-acao="editar"]').click();
-    await vi.waitFor(() => expect(campo('rec_paciente_card').hidden).toBe(false));
+    await vi.waitFor(() => expect(cartao().hidden).toBe(false));
 
     expect(itens()[0].querySelector('.med-rms').value).toBe('1023506630034');            // cópia da época
     itens()[0].querySelector('.med-lote').value = 'L1-corrigido';
@@ -387,7 +389,7 @@ describe('editar, excluir e PDF da lista', () => {
   it('trocar o medicamento de um item usa o novo do catálogo', async () => {
     const c = await montar();
     c.querySelector('[data-acao="editar"]').click();
-    await vi.waitFor(() => expect(campo('rec_paciente_card').hidden).toBe(false));
+    await vi.waitFor(() => expect(cartao().hidden).toBe(false));
     await escolherMedicamento(itens()[0], 'amoxi', 'AMOXICILINA');
     enviar('formReceita');
     await vi.waitFor(() => expect(ler('receitas')[0].itens[0].medicamento).toBe('AMOXICILINA 500 MG CX 21 COMP.'));
@@ -397,7 +399,7 @@ describe('editar, excluir e PDF da lista', () => {
   it('apagar o médico e as observações grava vazio', async () => {
     const c = await montar();
     c.querySelector('[data-acao="editar"]').click();
-    await vi.waitFor(() => expect(campo('rec_paciente_card').hidden).toBe(false));
+    await vi.waitFor(() => expect(cartao().hidden).toBe(false));
     campo('rec_medico').value = '';
     campo('rec_obs').value = '';
     enviar('formReceita');
@@ -408,10 +410,10 @@ describe('editar, excluir e PDF da lista', () => {
   it('o botão "Nova Receita" depois de editar volta ao cadastro vazio', async () => {
     const c = await montar();
     c.querySelector('[data-acao="editar"]').click();
-    await vi.waitFor(() => expect(campo('rec_paciente_card').hidden).toBe(false));
+    await vi.waitFor(() => expect(cartao().hidden).toBe(false));
     campo('btnAbrirModalReceita').click();
     await vi.waitFor(() => expect(campo('tituloModalReceita').textContent).toBe('Nova Receita'));
-    expect(campo('rec_paciente_card').hidden).toBe(true);
+    expect(cartao().hidden).toBe(true);
     expect(campo('rec_medico').value).toBe('');
     expect(itens()).toHaveLength(1);
     expect(nomeDoItem(itens()[0]).value).toBe('');
@@ -432,5 +434,155 @@ describe('editar, excluir e PDF da lista', () => {
     const [receita, paciente] = baixarPdf.mock.calls[0];
     expect(receita.id).toBe(5);
     expect(paciente).toMatchObject({ nome: 'Igor Lemos', cpf: '123.456.789-00' });
+  });
+});
+
+// ───────────── feedback do cliente (nov/2026) ─────────────
+describe('ajustes do atendimento de receitas', () => {
+  const sobreposto = () => document.querySelector('.modal-overlay.modal-sobreposto');
+
+  it('laboratório e RMS podem ser trocados na hora conforme a caixa entregue, sem mudar o catálogo', async () => {
+    await montar();
+    campo('btnAbrirModalReceita').click();
+    await digitarEEscolher(campo('rec_paciente'), 'igor', 'Igor Lemos');
+    await escolherMedicamento(itens()[0], 'amoxi', 'AMOXICILINA');
+    expect(itens()[0].querySelector('.med-laboratorio').value).toBe('PRATI,DONADUZZI &CIA LTDA');
+    itens()[0].querySelector('.med-laboratorio').value = 'EUROFARMA';
+    itens()[0].querySelector('.med-rms').value = '1004300990011';
+    enviar('formReceita');
+    await vi.waitFor(() => expect(ler('receitas')).toHaveLength(1));
+    expect(ler('receitas')[0].itens[0]).toMatchObject({ medicamento: 'AMOXICILINA 500 MG CX 21 COMP.', laboratorio: 'EUROFARMA', rms: '1004300990011' });
+    expect(ler('catalogo_medicamentos')[1].laboratorio).toBe('PRATI,DONADUZZI &CIA LTDA');
+  });
+
+  it('RMS com letras é recusado com aviso da linha', async () => {
+    await montar();
+    campo('btnAbrirModalReceita').click();
+    await digitarEEscolher(campo('rec_paciente'), 'igor', 'Igor Lemos');
+    await escolherMedicamento(itens()[0], 'amoxi', 'AMOXICILINA');
+    itens()[0].querySelector('.med-rms').value = '1,02E+12';
+    enviar('formReceita');
+    await vi.waitFor(() => expect(alerta).toHaveBeenCalledWith('Medicamento 1: o RMS deve ter só números.'));
+  });
+
+  it('dose e posologia ficam em branco quando o nome já traz a dosagem', async () => {
+    await montar();
+    campo('btnAbrirModalReceita').click();
+    await digitarEEscolher(campo('rec_paciente'), 'igor', 'Igor Lemos');
+    await escolherMedicamento(itens()[0], 'alprazol', 'ALPRAZOLAM');
+    expect(itens()[0].querySelector('.med-dose').placeholder).toBe('Dose (já no nome)');
+    enviar('formReceita');
+    await vi.waitFor(() => expect(ler('receitas')).toHaveLength(1));
+    expect(ler('receitas')[0].itens[0]).toMatchObject({ dose: null, posologia: null });
+  });
+
+  it('"+ Cadastrar novo medicamento" cria no catálogo e já escolhe, sem perder o que foi digitado', async () => {
+    await montar();
+    campo('btnAbrirModalReceita').click();
+    await digitarEEscolher(campo('rec_paciente'), 'igor', 'Igor Lemos');
+    campo('rec_medico').value = 'Dra. Paula';
+    itens()[0].querySelector('.med-lote').value = 'LT9';
+
+    await digitarEEscolher(nomeDoItem(itens()[0]), 'losartana 50 mg', '+ Cadastrar novo medicamento');
+    expect(sobreposto()).not.toBeNull();
+    expect(sobreposto().querySelector('#nm_descricao').value).toBe('LOSARTANA 50 MG');
+    sobreposto().querySelector('#nm_rms').value = '1000000000001';
+    sobreposto().querySelector('#nm_laboratorio').value = 'EMS';
+    sobreposto().querySelector('form').dispatchEvent(new Event('submit', { cancelable: true }));
+
+    await vi.waitFor(() => expect(nomeDoItem(itens()[0]).value).toBe('LOSARTANA 50 MG'));
+    expect(itens()[0].querySelector('.med-rms').value).toBe('1000000000001');
+    expect(itens()[0].querySelector('.med-lote').value).toBe('LT9');
+    expect(campo('rec_medico').value).toBe('Dra. Paula');
+    expect(ler('catalogo_medicamentos').some(m => m.descricao === 'LOSARTANA 50 MG')).toBe(true);
+
+    enviar('formReceita');
+    await vi.waitFor(() => expect(ler('receitas')).toHaveLength(1));
+    expect(ler('receitas')[0].itens[0]).toMatchObject({ medicamento: 'LOSARTANA 50 MG', lote: 'LT9', laboratorio: 'EMS' });
+  });
+
+  it('cadastrar um medicamento que já existe usa o existente (sem duplicar)', async () => {
+    await montar();
+    campo('btnAbrirModalReceita').click();
+    await digitarEEscolher(nomeDoItem(itens()[0]), 'zzz', '+ Cadastrar novo medicamento');
+    sobreposto().querySelector('#nm_descricao').value = 'alprazolam 0,25 mg 30 cprs';
+    sobreposto().querySelector('#nm_rms').value = '1023506630034';
+    sobreposto().querySelector('form').dispatchEvent(new Event('submit', { cancelable: true }));
+    await vi.waitFor(() => expect(nomeDoItem(itens()[0]).value).toBe('ALPRAZOLAM 0,25 MG 30 CPRS'));
+    expect(ler('catalogo_medicamentos')).toHaveLength(3);
+  });
+
+  it('o alerta de alergia do paciente aparece em destaque', async () => {
+    guardar('clientes', [{ ...CLIENTES[0], alergia: 'Dipirona e penicilina' }, CLIENTES[1]]);
+    await montar();
+    campo('btnAbrirModalReceita').click();
+    await digitarEEscolher(campo('rec_paciente'), 'igor', 'Igor Lemos');
+    const alerta = cartao().querySelector('.alerta-alergia');
+    expect(alerta).not.toBeNull();
+    expect(alerta.getAttribute('role')).toBe('alert');
+    expect(alerta.textContent).toContain('Dipirona e penicilina');
+  });
+});
+
+describe('farmacêutico responsável (vem do cadastro de usuários)', () => {
+  const usuario = (id, nome, extra = {}) => ({ id, nome, email: `${id}@x.com`, perfil: 'funcionario', modulos: ['receitas'], ativo: true, criado_em: '2026-10-01', ...extra });
+
+  async function salvarComPaciente() {
+    await digitarEEscolher(campo('rec_paciente'), 'igor', 'Igor Lemos');
+    await escolherMedicamento(itens()[0], 'alprazol', 'ALPRAZOLAM');
+    enviar('formReceita');
+  }
+
+  it('o farmacêutico logado assina a própria receita', async () => {
+    guardar('usuarios', [
+      usuario(1, 'Ana Farmacêutica', { farmaceutico: true, registro_profissional: 'CRF-SE 1', cargo: 'Farmacêutica Responsável' }),
+      usuario(2, 'Bruno Farmacêutico', { farmaceutico: true, registro_profissional: 'CRF-SE 2' }),
+    ]);
+    localStorage.setItem('fc_demo_sessao', '2');
+    await montar();
+    campo('btnAbrirModalReceita').click();
+    expect(campo('rec_farmaceutico').value).toBe('2');
+    await salvarComPaciente();
+    await vi.waitFor(() => expect(ler('receitas')).toHaveLength(1));
+    expect(ler('receitas')[0].farmaceutico).toMatchObject({ nome: 'Bruno Farmacêutico', registro_profissional: 'CRF-SE 2' });
+  });
+
+  it('atendente com vários farmacêuticos precisa escolher o do turno', async () => {
+    guardar('usuarios', [
+      usuario(1, 'Ana Farmacêutica', { farmaceutico: true, registro_profissional: 'CRF-SE 1' }),
+      usuario(2, 'Bruno Farmacêutico', { farmaceutico: true, registro_profissional: 'CRF-SE 2' }),
+      usuario(3, 'Carla Atendente'),
+    ]);
+    localStorage.setItem('fc_demo_sessao', '3');
+    await montar();
+    campo('btnAbrirModalReceita').click();
+    expect(campo('rec_farmaceutico').value).toBe('');
+    expect(campo('rec_farmaceutico').textContent).toContain('CRF-SE 1');
+    await salvarComPaciente();
+    await vi.waitFor(() => expect(alerta).toHaveBeenCalledWith('Selecione o farmacêutico responsável.'));
+    campo('rec_farmaceutico').value = '1';
+    enviar('formReceita');
+    await vi.waitFor(() => expect(ler('receitas')).toHaveLength(1));
+    expect(ler('receitas')[0].farmaceutico.nome).toBe('Ana Farmacêutica');
+  });
+
+  it('sem farmacêutico cadastrado, avisa que a ficha sai em branco para assinatura', async () => {
+    guardar('usuarios', [usuario(3, 'Carla Atendente')]);
+    localStorage.setItem('fc_demo_sessao', '3');
+    await montar();
+    campo('btnAbrirModalReceita').click();
+    expect(campo('rec_farmaceutico').tagName).toBe('P');
+    expect(campo('rec_farmaceutico').textContent).toContain('em branco');
+    await salvarComPaciente();
+    await vi.waitFor(() => expect(ler('receitas')).toHaveLength(1));
+    expect(ler('receitas')[0].farmaceutico).toBeNull();
+  });
+});
+
+describe('nomeTemDosagem', () => {
+  it('reconhece a dosagem no nome comercial', async () => {
+    const { nomeTemDosagem } = await import('../src/js/views/receitas.js');
+    for (const nome of ['ALPRAZOLAM 0,25 MG', 'Dipirona 500mg/mL', 'AMOXICILINA 500MG', 'Insulina 100 UI', 'Minoxidil 5%']) expect(nomeTemDosagem(nome), nome).toBe(true);
+    for (const nome of ['SORO FISIOLÓGICO', 'POMADA X', '']) expect(nomeTemDosagem(nome), nome).toBe(false);
   });
 });

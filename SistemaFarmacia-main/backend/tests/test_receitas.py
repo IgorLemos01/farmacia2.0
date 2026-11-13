@@ -183,3 +183,32 @@ def test_dossie_inclui_itens_da_receita(client, auth, cliente_id, alprazolam):
     _criar(client, auth, cliente_id, [{"catalogo_id": alprazolam["id"]}])
     dossie = client.get(f"/api/clientes/{cliente_id}/dossie", headers=auth).get_json()
     assert dossie["historico"]["receitas"][0]["itens"][0]["medicamento"] == "ALPRAZOLAM 0,25 MG 30 CPRS"
+
+
+# ───────────── feedback: laboratório e RMS corrigidos no lançamento ─────────────
+def test_laboratorio_e_rms_podem_ser_trocados_na_receita_sem_mudar_o_catalogo(client, auth, cliente_id):
+    med = criar_medicamento(client, auth, "LOSARTANA 50 MG", "1000000000001", "PRATI DONADUZZI")
+    resp = _criar(client, auth, cliente_id, [{"catalogo_id": med["id"], "laboratorio": "  EMS  S/A ", "rms": " 1000000000099 "}])
+    assert resp.status_code == 201, resp.get_json()
+    item = resp.get_json()["receita"]["itens"][0]
+    assert (item["medicamento"], item["laboratorio"], item["rms"]) == ("LOSARTANA 50 MG", "EMS S/A", "1000000000099")
+    catalogo = client.get("/api/catalogo-medicamentos", headers=auth).get_json()["itens"][0]
+    assert (catalogo["laboratorio"], catalogo["rms"]) == ("PRATI DONADUZZI", "1000000000001")
+
+    # na edição, item salvo também pode ter o laboratório corrigido
+    editada = client.put(f"/api/receitas/{resp.get_json()['receita']['id']}", json={
+        "itens": [{"id": item["id"], "laboratorio": "SIMED"}],
+    }, headers=auth).get_json()["receita"]
+    assert (editada["itens"][0]["laboratorio"], editada["itens"][0]["rms"]) == ("SIMED", "1000000000099")
+
+
+def test_rms_invalido_no_item(client, auth, cliente_id):
+    med = criar_medicamento(client, auth)
+    resp = _criar(client, auth, cliente_id, [{"catalogo_id": med["id"], "rms": "1,02E+12"}])
+    assert resp.status_code == 400 and "Medicamento 1" in resp.get_json()["message"]
+
+
+def test_dose_e_posologia_sao_opcionais(client, auth, cliente_id):
+    med = criar_medicamento(client, auth, "DIPIRONA 500MG/ML GOTAS", "")
+    item = _criar(client, auth, cliente_id, [{"catalogo_id": med["id"], "dose": None, "posologia": ""}]).get_json()["receita"]["itens"][0]
+    assert (item["dose"], item["posologia"]) == (None, None)

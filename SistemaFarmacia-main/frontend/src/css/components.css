@@ -637,3 +637,162 @@
 @media (max-width: 560px) {
   .modulos-grid { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   FEEDBACK NOV/2026 — cadastro progressivo, exames, relatórios
+   ============================================================ */
+
+/* --- Formulários comuns --- */
+.form-acoes { display: flex; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
+.form-dica { display: block; margin-top: 8px; font-size: 0.78rem; color: var(--text-muted); }
+.form-dica-topo { font-size: 0.82rem; color: var(--text-body); margin: -8px 0 16px; }
+.form-erro {
+  margin-bottom: 14px; padding: 10px 14px; border-radius: var(--radius-md);
+  background: var(--badge-danger-bg); color: var(--badge-danger-text); font-size: 0.83rem;
+}
+.form-erro[hidden] { display: none; }
+.form-input.campo-pendente, .form-select.campo-pendente { border-color: var(--badge-warning-text); background: var(--badge-warning-bg); }
+.form-input.invalido { border-color: var(--badge-danger-text); }
+
+/* Modal aberto por cima de outro (cadastro rápido de cliente / medicamento) */
+.modal-overlay.modal-sobreposto { z-index: 1100; }
+
+/* Seção recolhível "Dados complementares (opcionais)" */
+.secao-opcional {
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 0 16px;
+  margin: 4px 0 18px;
+}
+.secao-opcional > summary {
+  cursor: pointer; padding: 12px 0; font-size: 0.88rem; font-weight: 700; color: var(--text-title);
+  list-style-position: inside;
+}
+.secao-opcional > summary small { font-weight: 500; color: var(--text-muted); }
+.secao-opcional[open] > summary { border-bottom: 1px solid var(--border-light); margin-bottom: 14px; }
+
+/* --- Cartão do paciente: alerta de alergia e cadastro incompleto --- */
+.alerta-alergia {
+  display: flex; flex-direction: column; gap: 2px;
+  margin: 8px 0; padding: 10px 14px;
+  background: #fde8e8; border: 1px solid #f8b4b4; border-left: 5px solid #c81e1e;
+  border-radius: var(--radius-sm);
+  color: #771d1d; font-size: 0.84rem;
+}
+.alerta-alergia strong { color: #9b1c1c; font-size: 0.8rem; letter-spacing: 0.3px; }
+.aviso-cadastro {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  margin-top: 8px; padding: 8px 12px;
+  background: var(--badge-warning-bg); border-radius: var(--radius-sm);
+  color: var(--badge-warning-text); font-size: 0.78rem;
+}
+.autocomplete-acao { color: var(--color-primary-accent); font-weight: 700; font-size: 0.84rem; border-top: 1px dashed var(--border-light); }
+
+/* --- Carrinho de exames --- */
+.carrinho { margin-top: 10px; border: 1px solid var(--border-light); border-radius: var(--radius-md); overflow: hidden; }
+.carrinho.vazio::after {
+  content: 'Nenhum exame adicionado. Busque acima e adicione quantos precisar.';
+  display: block; padding: 14px; text-align: center; font-size: 0.8rem; color: var(--text-muted);
+}
+.carrinho.vazio thead { display: none; }
+.carrinho-tabela { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+.carrinho-tabela th { text-align: left; padding: 8px 10px; background: #fafbfc; font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; }
+.carrinho-tabela td { padding: 6px 10px; border-top: 1px solid var(--border-light); vertical-align: middle; }
+.carrinho-tabela .form-input { height: 36px; padding: 0 10px; text-align: right; }
+.carrinho-ordem { width: 28px; color: var(--text-muted); font-weight: 700; }
+.carrinho-nome { font-weight: 600; color: var(--text-title); }
+.carrinho-total { text-align: right; font-size: 0.95rem; color: var(--text-title); }
+.carrinho-tabela tfoot td { background: var(--color-primary-light); font-weight: 600; }
+.carrinho-tabela tr.destaque td { background: var(--badge-warning-bg); transition: background 0.3s; }
+.lista-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+
+/* --- Dashboard / relatórios --- */
+.dash-topo { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+.dash-titulo { font-size: 1.7rem; font-weight: 800; color: var(--text-title); letter-spacing: -0.5px; line-height: 1.2; }
+.dash-subtitulo { font-size: 0.85rem; color: var(--text-muted); margin-top: 2px; }
+.dash-relogio { font-size: 0.85rem; color: var(--text-muted); font-weight: 500; text-align: right; }
+.dash-saudacao { font-size: 0.95rem; font-weight: 600; color: var(--text-body); margin-bottom: 12px; }
+.dash-saudacao span { color: var(--color-primary-dark); }
+.dash-duas-colunas { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.carregando-bloco { text-align: center; padding: 40px; color: var(--text-muted); }
+
+.filtro-periodo { margin-bottom: 18px; padding: 14px 20px; }
+.filtro-linha { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
+.filtro-titulo { font-size: 0.85rem; font-weight: 700; color: var(--text-title); align-self: center; }
+.filtro-campo { display: flex; flex-direction: column; gap: 4px; font-size: 0.72rem; color: var(--text-muted); font-weight: 600; }
+.filtro-campo .form-input, .filtro-campo .form-select { height: 36px; width: 160px; font-size: 0.85rem; }
+.filtro-campo-linha { flex-direction: row; align-items: center; gap: 8px; }
+.filtro-campo-linha .form-select { width: 84px; }
+.filtro-atalhos, .filtro-exportar { display: flex; gap: 6px; flex-wrap: wrap; }
+.filtro-exportar { margin-left: auto; }
+.filtro-ativo { display: inline-block; margin-top: 10px; font-size: 0.8rem; color: var(--color-primary-dark); font-weight: 600; }
+.filtro-ativo-neutro { color: var(--text-muted); font-weight: 500; }
+
+.relatorio-cabecalho { margin-bottom: 14px; }
+.relatorio-cabecalho h2 { font-size: 1.2rem; font-weight: 800; color: var(--text-title); }
+.relatorio-cabecalho p { font-size: 0.82rem; color: var(--text-muted); }
+
+.metricas-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.metrica { padding: 18px 16px; display: flex; flex-direction: column; gap: 8px; }
+.metrica-topo { display: flex; align-items: center; gap: 10px; }
+.metrica-icone { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.metrica-valor { font-size: 2rem; font-weight: 800; color: var(--text-title); line-height: 1; }
+.metrica-valor-menor { font-size: 1.3rem; white-space: nowrap; }
+.metrica-rotulo { font-size: 0.78rem; color: var(--text-muted); font-weight: 500; }
+.metrica-extra { font-size: 0.72rem; color: #059669; font-weight: 600; }
+
+.card-cabecalho { padding: 18px 22px 14px; border-bottom: 1px solid var(--border-light); }
+.card-cabecalho-linha { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.card-titulo { font-size: 1rem; font-weight: 700; color: var(--text-title); }
+.card-subtitulo { font-size: 0.78rem; color: var(--text-muted); margin-top: 1px; }
+.vazio-bloco { text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 0.88rem; }
+.vazio-curto { font-size: 0.82rem; color: var(--text-muted); font-style: italic; }
+
+.servico-linha { display: flex; align-items: center; justify-content: space-between; padding: 10px 22px; border-bottom: 1px solid var(--border-light); }
+.servico-esq { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.servico-tipo { font-size: 0.68rem; font-weight: 700; padding: 3px 9px; border-radius: 99px; white-space: nowrap; flex-shrink: 0; }
+.servico-cliente { font-size: 0.85rem; font-weight: 700; color: var(--text-title); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.servico-desc { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+.servico-dir { text-align: right; flex-shrink: 0; margin-left: 10px; }
+.servico-valor { font-size: 0.85rem; font-weight: 700; color: var(--text-title); }
+.servico-data { font-size: 0.72rem; color: var(--text-muted); }
+
+.barras { display: flex; flex-direction: column; gap: 4px; }
+.barra-linha { display: flex; align-items: center; gap: 12px; padding: 4px 0; }
+.barra-rotulo { font-size: 0.76rem; color: var(--text-muted); font-weight: 600; width: 110px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.barra-trilho { flex: 1; height: 6px; background: #f1f5f9; border-radius: 99px; overflow: hidden; }
+.barra-preenchida { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
+.barra-valor { font-size: 0.76rem; font-weight: 600; color: var(--text-title); min-width: 90px; text-align: right; white-space: nowrap; }
+
+.tabela-relatorio th.num, .tabela-relatorio td.num { text-align: right; white-space: nowrap; }
+.tabela-relatorio tfoot td { font-weight: 800; color: var(--text-title); background: var(--color-primary-light); padding: 10px 14px; }
+.paginacao { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 14px; font-size: 0.82rem; color: var(--text-body); border-top: 1px solid var(--border-light); }
+
+/* Quadro oculto usado para imprimir a ficha da receita */
+.quadro-impressao { position: fixed; right: 0; bottom: 0; width: 0; height: 0; border: 0; visibility: hidden; }
+
+@media (max-width: 1100px) {
+  .dash-duas-colunas { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .filtro-exportar { margin-left: 0; }
+  .filtro-campo .form-input { width: 140px; }
+}
+
+/* ============================================================
+   IMPRESSÃO — imprime só o conteúdo (relatórios, listas), sem menu nem botões.
+   A ficha da receita é impressa pelo PDF próprio, já no tamanho de folha de cheque
+   (175 × 80 mm): na janela de impressão use escala 100% / "tamanho real".
+   ============================================================ */
+@media print {
+  @page { size: A4 landscape; margin: 10mm; }
+  body { background: #fff !important; }
+  .sidebar, .topbar, .page-header .page-actions, .tabs, .filtro-atalhos, .filtro-exportar,
+  .paginacao, .row-actions, .btn, .modal-overlay, .drawer-overlay, #badgeModoDemo { display: none !important; }
+  .main-wrapper { margin: 0 !important; padding: 0 !important; }
+  .card { box-shadow: none !important; border: 1px solid #ddd; break-inside: avoid; }
+  .table-responsive { overflow: visible !important; }
+  .table-modern th, .table-modern td { font-size: 9pt; padding: 4px 6px; }
+  .dash-duas-colunas { grid-template-columns: 1fr 1fr; }
+  .filtro-campo input { border: none; padding: 0; }
+}

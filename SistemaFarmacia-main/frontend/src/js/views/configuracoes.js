@@ -111,10 +111,14 @@ async function renderUsuarios(container) {
                         <div>
                           <div style="font-weight: 700; color: var(--text-title);">${esc(u.nome)}${String(u.id) === String(logado?.id) ? ' <span style="font-weight: 500; color: var(--text-muted);">(você)</span>' : ''}</div>
                           <div style="font-size: 0.75rem; color: var(--text-muted);">${esc(u.email)}</div>
+                          ${u.cargo || u.registro_profissional ? `<div style="font-size: 0.72rem; color: var(--text-body);">${esc([u.cargo, u.registro_profissional].filter(Boolean).join(' · '))}</div>` : ''}
                         </div>
                       </div>
                     </td>
-                    <td><span class="badge ${u.perfil === 'admin' ? 'badge-info' : 'badge-neutral'}">${esc(PERFIS[u.perfil] || u.perfil)}</span></td>
+                    <td>
+                      <span class="badge ${u.perfil === 'admin' ? 'badge-info' : 'badge-neutral'}">${esc(PERFIS[u.perfil] || u.perfil)}</span>
+                      ${u.farmaceutico ? '<span class="badge badge-success" title="Pode ser o farmacêutico responsável das receitas">Farmacêutico</span>' : ''}
+                    </td>
                     <td style="max-width: 280px;">${acessosDoUsuario(u)}</td>
                     <td><span class="badge ${u.ativo ? 'badge-success' : 'badge-danger'}">${u.ativo ? 'Ativo' : 'Desativado'}</span></td>
                     <td>${esc(dataBR(u.criado_em))}</td>
@@ -156,6 +160,22 @@ async function renderUsuarios(container) {
             <div class="form-group">
               <label class="form-label" for="usr_senha"><span id="textoSenhaUsuario">Senha</span> <span class="req" id="obrigSenhaUsuario">*</span></label>
               <input type="password" class="form-input" id="usr_senha" autocomplete="new-password"/>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="usr_cargo">Cargo</label>
+              <input type="text" class="form-input" id="usr_cargo" maxlength="80" placeholder="Ex: Farmacêutico Responsável, Atendente"/>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="usr_registro">Registro profissional (CRF)</label>
+              <input type="text" class="form-input" id="usr_registro" maxlength="40" placeholder="Ex: CRF-SE 1234"/>
+            </div>
+
+            <div class="form-group form-group-full">
+              <label style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; color: var(--text-body); cursor: pointer;">
+                <input type="checkbox" id="usr_farmaceutico"/> É farmacêutico — pode ser escolhido como responsável técnico nas receitas (exige o CRF)
+              </label>
             </div>
 
             <fieldset class="form-group form-group-full modulos-campo" id="grupoModulos">
@@ -238,6 +258,9 @@ async function renderUsuarios(container) {
       campo('usr_email').value = usuario.email || '';
       campo('usr_perfil').value = usuario.perfil;
       campo('usr_ativo').checked = !!usuario.ativo;
+      campo('usr_cargo').value = usuario.cargo || '';
+      campo('usr_registro').value = usuario.registro_profissional || '';
+      campo('usr_farmaceutico').checked = !!usuario.farmaceutico;
       caixasModulos().forEach(caixa => { caixa.checked = (usuario.modulos || []).includes(caixa.value); });
     }
     ajustarModulos();
@@ -264,6 +287,11 @@ async function renderUsuarios(container) {
     const senha = campo('usr_senha').value;
     const perfil = campo('usr_perfil').value;
     const modulos = caixasModulos().filter(c => c.checked).map(c => c.value);
+    const profissionais = {
+      cargo: campo('usr_cargo').value.trim() || null,
+      registro_profissional: campo('usr_registro').value.replace(/\s+/g, ' ').trim().toUpperCase() || null,
+      farmaceutico: campo('usr_farmaceutico').checked,
+    };
 
     // Avisos na própria janela, antes de enviar
     if (nome.length < 3) return mostrarErro('Informe o nome (pelo menos 3 letras).');
@@ -271,12 +299,13 @@ async function renderUsuarios(container) {
     if (!editando && senha.length < 6) return mostrarErro('A senha precisa ter pelo menos 6 caracteres.');
     if (editando && senha && senha.length < 6) return mostrarErro('A nova senha precisa ter pelo menos 6 caracteres.');
     if (perfil === 'funcionario' && !modulos.length) return mostrarErro('Marque ao menos um módulo para o funcionário.');
+    if (profissionais.farmaceutico && !profissionais.registro_profissional) return mostrarErro('Informe o registro profissional (CRF) do farmacêutico.');
 
     const botao = campo('btnSalvarUsuario');
     botao.disabled = true;
     try {
       if (editando) {
-        const payload = { nome };
+        const payload = { nome, ...profissionais };
         if (!proprio) {
           payload.perfil = perfil;
           payload.modulos = modulos;
@@ -287,11 +316,11 @@ async function renderUsuarios(container) {
 
         if (proprio && !MODO_DEMO) {
           // mantém o nome do topo da página em dia
-          sessao.guardarUsuario({ ...logado, nome });
+          sessao.guardarUsuario({ ...logado, nome, ...profissionais });
           window.dispatchEvent(new CustomEvent('fc:usuario-atualizado'));
         }
       } else {
-        await api.cadastrarUsuario({ nome, email, senha, perfil, modulos });
+        await api.cadastrarUsuario({ nome, email, senha, perfil, modulos, ...profissionais });
       }
       fecharModal();
       await renderUsuarios(container);

@@ -20,4 +20,5 @@ export function aplicarPermissoesNaTela(usuario, doc = document) {
   const veClientes = podeAcessar(usuario, 'clientes');
   ocultar(doc.querySelector('.search-pill-container'), !veClientes);
   ocultar(doc.getElementById('btnNovoAtendimento'), !veClientes);
+  ocultar(doc.getElementById('btnExportarRelatorio'), !podeAcessar(usuario, 'dashboard'));
 }

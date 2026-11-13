@@ -5,11 +5,11 @@ from flask_restx import Namespace, Resource, fields
 
 from app.auth_utils import admin_required, modulo_required
 from app.routes.campos import TextoOpcional
-from app.services.catalogo_medicamento_service import CatalogoMedicamentoService
+from app.services.catalogo_medicamento_service import CatalogoMedicamentoService, MedicamentoExistente
 
 ns = Namespace(
     "catalogo-medicamentos",
-    description="Catálogo de medicamentos: RMS, descrição e laboratório (alteração somente por administradores)",
+    description="Catálogo de medicamentos: RMS, descrição e laboratório (edição e importação somente por administradores)",
 )
 
 modelo_medicamento_entrada = ns.model(
@@ -56,13 +56,22 @@ class MedicamentoLista(Resource):
         apenas_ativos = request.args.get("ativos", "").lower() in ("1", "true", "sim")
         return {"itens": [m.to_dict() for m in CatalogoMedicamentoService.listar(apenas_ativos)]}, 200
 
-    @admin_required
+    @modulo_required('receitas')
     @ns.expect(modelo_medicamento_entrada, validate=True)
-    @ns.doc(description="Adiciona um medicamento ao catálogo (somente administrador).", security="Bearer")
+    @ns.doc(
+        description=(
+            "Adiciona um medicamento ao catálogo. Administrador ou quem lança receitas (cadastro na hora "
+            "de um produto recém-chegado). Se já existir um ativo com o mesmo RMS e descrição, responde 409 "
+            "com o medicamento existente em `medicamento`."
+        ),
+        security="Bearer",
+    )
     def post(self):
         """Adicionar medicamento ao catálogo"""
         try:
             medicamento = CatalogoMedicamentoService.cadastrar(ns.payload)
+        except MedicamentoExistente as e:
+            return {"message": str(e), "medicamento": e.medicamento.to_dict()}, 409
         except ValueError as e:
             ns.abort(400, str(e))
         return {"mensagem": "Medicamento adicionado ao catálogo.", "medicamento": medicamento.to_dict()}, 201

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const CLIENTE = {
-  id: 1, nome: 'Ana Souza', cpf: '111.111.111-11', rg: '1', data_nascimento: '1990-01-01', sexo: 'F',
+  id: 1, nome: 'Ana Souza', cpf: '529.982.247-25', rg: '1', data_nascimento: '1990-01-01', sexo: 'F',
   telefone: '(75) 90000-0000', email: 'ana@x.com', endereco: 'Rua A', alergia: null, observacoes: null,
 };
 
@@ -19,6 +19,9 @@ async function montar(arquivoView, funcao, ...args) {
 }
 
 const enviar = id => document.getElementById(id).dispatchEvent(new Event('submit', { cancelable: true }));
+const formCliente = () => document.querySelector('.modal-sobreposto form');
+const enviarCliente = () => formCliente().dispatchEvent(new Event('submit', { cancelable: true }));
+const fc = nome => document.getElementById('fc_' + nome);
 
 let alerta;
 beforeEach(() => {
@@ -34,12 +37,12 @@ describe('clientes', () => {
     const c = await montar('../src/js/views/clientes.js', 'renderClientes');
 
     c.querySelector('[data-acao="editar"]').click();
-    expect(document.getElementById('tituloModalCliente').textContent).toBe('Editar Cliente');
-    expect(document.getElementById('cli_nome').value).toBe('Ana Souza');
-    expect(document.getElementById('cli_nasc').value).toBe('1990-01-01');
+    expect(document.querySelector('.modal-sobreposto .modal-title').textContent).toBe('Completar Cadastro'); // falta CEP, bairro...
+    expect(fc('nome').value).toBe('Ana Souza');
+    expect(fc('data_nascimento').value).toBe('1990-01-01');
 
-    document.getElementById('cli_nome').value = 'Ana Maria Souza';
-    enviar('formNovoCliente');
+    fc('nome').value = 'Ana Maria Souza';
+    enviarCliente();
 
     await vi.waitFor(() => expect(c.textContent).toContain('Ana Maria Souza'));
     const salvos = ler('clientes');
@@ -47,13 +50,12 @@ describe('clientes', () => {
     expect(salvos[0].id).toBe(1);
   });
 
-  it('o botão "Novo Cliente" abre o formulário vazio, mesmo depois de uma edição', async () => {
+  it('o botão "Novo Cliente" abre o formulário vazio', async () => {
     guardar('clientes', [CLIENTE]);
-    const c = await montar('../src/js/views/clientes.js', 'renderClientes');
-    c.querySelector('[data-acao="editar"]').click();
+    await montar('../src/js/views/clientes.js', 'renderClientes');
     document.getElementById('btnAbrirModalCliente').click();
-    expect(document.getElementById('tituloModalCliente').textContent).toBe('Novo Cliente');
-    expect(document.getElementById('cli_nome').value).toBe('');
+    expect(document.querySelector('.modal-sobreposto .modal-title').textContent).toBe('Novo Cliente');
+    expect(fc('nome').value).toBe('');
   });
 
   it('edição mantém o nome em dia nos registros do cliente (modo demonstração)', async () => {
@@ -61,20 +63,21 @@ describe('clientes', () => {
     guardar('exames', [{ id: 9, cliente_id: 1, cliente_nome: 'Ana Souza', tipo_exame: 'Glicemia', data: '2026-10-01', valor: 5 }]);
     const c = await montar('../src/js/views/clientes.js', 'renderClientes');
     c.querySelector('[data-acao="editar"]').click();
-    document.getElementById('cli_nome').value = 'Ana Lima';
-    enviar('formNovoCliente');
+    fc('nome').value = 'Ana Lima';
+    enviarCliente();
     await vi.waitFor(() => expect(ler('exames')[0].cliente_nome).toBe('Ana Lima'));
   });
 
-  it('recusa CPF que já é de outro cliente', async () => {
-    guardar('clientes', [CLIENTE, { ...CLIENTE, id: 2, nome: 'Bia', cpf: '222.222.222-22' }]);
+  it('recusa CPF que já é de outro cliente e mostra o aviso no formulário', async () => {
+    guardar('clientes', [CLIENTE, { ...CLIENTE, id: 2, nome: 'Bia', cpf: '111.444.777-35' }]);
     const c = await montar('../src/js/views/clientes.js', 'renderClientes');
     c.querySelectorAll('[data-acao="editar"]')[1].click();
-    document.getElementById('cli_cpf').value = CLIENTE.cpf;
-    enviar('formNovoCliente');
-    await vi.waitFor(() => expect(alerta).toHaveBeenCalled());
-    expect(alerta.mock.calls[0][0]).toContain('já pertence a outro cliente');
-    expect(ler('clientes')[1].cpf).toBe('222.222.222-22');
+    fc('cpf').value = CLIENTE.cpf;
+    enviarCliente();
+    const erro = document.querySelector('.modal-sobreposto .form-erro');
+    await vi.waitFor(() => expect(erro.hidden).toBe(false));
+    expect(erro.textContent).toContain('já pertence ao cliente Ana Souza');
+    expect(ler('clientes')[1].cpf).toBe('111.444.777-35');
   });
 
   it('exclui após confirmação', async () => {
@@ -111,14 +114,14 @@ describe.each([
   {
     nome: 'manipulações', arquivo: '../src/js/views/manipulacoes.js', funcao: 'renderManipulacoes', chave: 'manipulacoes',
     registro: { id: 7, cliente_id: 1, cliente_nome: 'Ana Souza', formula: 'Minoxidil 5%', data: '2026-10-10', valor: 50, forma_pagamento: 'PIX' },
-    form: 'formNovaManip', campo: 'manip_formula', select: 'manip_cliente_id', titulo: 'tituloModalManip', novo: 'Novo Pedido de Manipulação', campoApi: 'formula',
+    form: 'formNovaManip', campo: 'manip_formula', paciente: 'manip_paciente', titulo: 'tituloModalManip', novo: 'Novo Pedido de Manipulação', campoApi: 'formula',
   },
   {
     nome: 'exames', arquivo: '../src/js/views/exames.js', funcao: 'renderExames', chave: 'exames',
-    registro: { id: 7, cliente_id: 1, cliente_nome: 'Ana Souza', tipo_exame: 'Glicemia', data: '2026-10-10', valor: 10, forma_pagamento: 'PIX', observacoes: 'Normal' },
-    form: 'formNovoExame', campo: 'exame_obs', select: 'exame_cliente_id', titulo: 'tituloModalExame', novo: 'Registrar Exame / Teste Clínico', campoApi: 'observacoes',
+    registro: { id: 7, cliente_id: 1, cliente_nome: 'Ana Souza', itens: [{ id: 70, catalogo_id: 1, nome: 'Glicemia', valor: 10 }], data: '2026-10-10', forma_pagamento: 'PIX', observacoes: 'Normal' },
+    form: 'formNovoExame', campo: 'exame_obs', paciente: 'exame_paciente', titulo: 'tituloModalExame', novo: 'Registrar Exames', campoApi: 'observacoes',
   },
-])('$nome', ({ arquivo, funcao, chave, registro, form, campo, select, titulo, novo, campoApi }) => {
+])('$nome', ({ arquivo, funcao, chave, registro, form, campo, paciente, titulo, novo, campoApi }) => {
   beforeEach(() => {
     guardar('clientes', [CLIENTE]);
     guardar(chave, [registro]);
@@ -127,7 +130,10 @@ describe.each([
   it('edita sem trocar o paciente', async () => {
     const c = await montar(arquivo, funcao);
     c.querySelector('[data-acao="editar"]').click();
-    expect(document.getElementById(select).disabled).toBe(true);
+    // o paciente aparece travado (sem botão de trocar)
+    await vi.waitFor(() => expect(document.getElementById(paciente).readOnly).toBe(true));
+    expect(document.getElementById(paciente).value).toBe('Ana Souza');
+    expect(document.querySelector('.paciente-card [data-trocar]')).toBeNull();
     expect(document.getElementById(campo).value).not.toBe('');
 
     document.getElementById(campo).value = 'Texto Editado';
@@ -141,9 +147,11 @@ describe.each([
   it('o botão de novo registro volta ao modo de cadastro', async () => {
     const c = await montar(arquivo, funcao);
     c.querySelector('[data-acao="editar"]').click();
+    await vi.waitFor(() => expect(document.getElementById(paciente).readOnly).toBe(true));
     c.querySelector('.btn.btn-primary').click();
     expect(document.getElementById(titulo).textContent).toBe(novo);
-    expect(document.getElementById(select).disabled).toBe(false);
+    expect(document.getElementById(paciente).readOnly).toBe(false);
+    expect(document.getElementById(paciente).value).toBe('');
   });
 
   it('exclui após confirmação', async () => {

@@ -16,6 +16,9 @@ class Usuario(db.Model):
         modulos     — Módulos liberados, separados por vírgula (ex.: "clientes,receitas"). Vale para
                       o funcionário; o admin sempre acessa todos.
         ativo       — Se False, o usuário está desativado e não consegue logar.
+        cargo       — Cargo exibido em receitas e relatórios (ex.: "Farmacêutico Responsável").
+        registro_profissional — Registro no conselho (ex.: "CRF-SE 1234").
+        farmaceutico — True = pode ser escolhido como farmacêutico responsável das receitas.
         criado_em   — Data/hora de criação do registro.
     """
 
@@ -28,6 +31,9 @@ class Usuario(db.Model):
     perfil = db.Column(db.Enum("admin", "funcionario"), nullable=False, default="funcionario")
     modulos = db.Column(db.String(200), nullable=False, default="")
     ativo = db.Column(db.Boolean, nullable=False, default=True)
+    cargo = db.Column(db.String(80), nullable=True)
+    registro_profissional = db.Column(db.String(40), nullable=True)
+    farmaceutico = db.Column(db.Boolean, nullable=False, default=False)
     criado_em = db.Column(db.DateTime, nullable=False, default=agora_utc)
 
     @property
@@ -66,7 +72,19 @@ class Usuario(db.Model):
             "perfil": self.perfil,
             "modulos": self.modulos_efetivos,
             "ativo": self.ativo,
+            "cargo": self.cargo,
+            "registro_profissional": self.registro_profissional,
+            "farmaceutico": bool(self.farmaceutico),
             "criado_em": self.criado_em.isoformat(),
+        }
+
+    def responsavel_dict(self):
+        """Dados públicos do farmacêutico (para receitas e relatórios)."""
+        return {
+            "id": self.id,
+            "nome": self.nome,
+            "cargo": self.cargo,
+            "registro_profissional": self.registro_profissional,
         }
 
     def __repr__(self):

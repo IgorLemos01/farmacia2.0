@@ -21,7 +21,7 @@ def _normalizar_descricao(valor) -> str:
     return texto
 
 
-def _normalizar_rms(valor) -> str:
+def normalizar_rms(valor) -> str:
     """RMS sem espaços ('' se não houver). Recusa número que o Excel transformou em 1,02E+12."""
     if valor is None:
         return ""
@@ -35,10 +35,18 @@ def _normalizar_rms(valor) -> str:
     return rms
 
 
-def _normalizar_laboratorio(valor):
+def normalizar_laboratorio(valor):
     if isinstance(valor, str):
         valor = " ".join(valor.split())
     return texto_opcional(valor, 150, "Laboratório")
+
+
+class MedicamentoExistente(ValueError):
+    """Já existe um medicamento ativo com esse RMS e essa descrição (a rota devolve 409 com ele)."""
+
+    def __init__(self, mensagem: str, medicamento: CatalogoMedicamento):
+        super().__init__(mensagem)
+        self.medicamento = medicamento
 
 
 def _chave(rms: str, descricao: str) -> tuple:
@@ -51,7 +59,12 @@ def _indice() -> dict:
 
 
 class CatalogoMedicamentoService:
-    """Regras do catálogo de medicamentos (alterado apenas por administradores)."""
+    """
+    Regras do catálogo de medicamentos.
+
+    Cadastrar: administrador ou quem lança receitas (produto recém-chegado, cadastrado na hora).
+    Editar, desativar e importar: só administrador.
+    """
 
     @staticmethod
     def listar(apenas_ativos: bool = False) -> list[CatalogoMedicamento]:
@@ -71,13 +84,13 @@ class CatalogoMedicamentoService:
     @staticmethod
     def cadastrar(dados: dict) -> CatalogoMedicamento:
         descricao = _normalizar_descricao(dados.get("descricao"))
-        rms = _normalizar_rms(dados.get("rms"))
-        laboratorio = _normalizar_laboratorio(dados.get("laboratorio"))
+        rms = normalizar_rms(dados.get("rms"))
+        laboratorio = normalizar_laboratorio(dados.get("laboratorio"))
 
         existente = _indice().get(_chave(rms, descricao))
         if existente:
             if existente.ativo:
-                raise ValueError(f"Já existe '{existente.descricao}' com esse RMS.")
+                raise MedicamentoExistente(f"Já existe '{existente.descricao}' com esse RMS.", existente)
             raise ValueError(f"Já existe '{existente.descricao}' com esse RMS (desativado). Reative-o na lista.")
 
         medicamento = CatalogoMedicamento(rms=rms, descricao=descricao, laboratorio=laboratorio, ativo=True)
@@ -103,9 +116,9 @@ class CatalogoMedicamentoService:
         if "descricao" in dados:
             mudancas["descricao"] = _normalizar_descricao(dados["descricao"])
         if "rms" in dados:
-            mudancas["rms"] = _normalizar_rms(dados["rms"])
+            mudancas["rms"] = normalizar_rms(dados["rms"])
         if "laboratorio" in dados:
-            mudancas["laboratorio"] = _normalizar_laboratorio(dados["laboratorio"])
+            mudancas["laboratorio"] = normalizar_laboratorio(dados["laboratorio"])
         if "ativo" in dados:
             if not isinstance(dados["ativo"], bool):
                 raise ValueError("O campo 'ativo' deve ser verdadeiro ou falso.")
@@ -145,8 +158,8 @@ class CatalogoMedicamentoService:
             linha = bruto.get("linha", posicao)
             try:
                 descricao = _normalizar_descricao(bruto.get("descricao"))
-                rms = _normalizar_rms(bruto.get("rms"))
-                laboratorio = _normalizar_laboratorio(bruto.get("laboratorio"))
+                rms = normalizar_rms(bruto.get("rms"))
+                laboratorio = normalizar_laboratorio(bruto.get("laboratorio"))
             except ValueError as e:
                 erros.append({"linha": linha, "nome": str(bruto.get("descricao") or ""), "motivo": str(e)})
                 continue

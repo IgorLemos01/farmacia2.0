@@ -33,6 +33,16 @@ npm run dev:frontend
 ```
 Acesse em: `http://localhost:5173` (landing) e `http://localhost:5173/sistema.html` (sistema).
 
+### Novidades (feedback de novembro/2026)
+- **Dashboard com relatórios por categoria** (Manipulação, Exames, Receitas), cada um com o próprio período,
+  tabela paginada e exportação em PDF e Excel.
+- **Cadastro rápido de clientes**: só nome e WhatsApp; o resto é completado depois. Alergias em destaque no atendimento.
+- **Vários exames por atendimento**, com valor editável e total automático.
+- **Receitas**: cadastro de medicamento novo na hora, RMS/laboratório editáveis, dose e posologia opcionais.
+- **Ficha da receita em tamanho de folha de cheque** (175 × 80 mm), sem linhas em branco.
+- **Farmacêutico responsável** vindo do cadastro de usuários (nada fixo no código).
+- Banco já existente: rode a migração em `backend/db/migracoes/` (detalhes no `CLAUDE.md`).
+
 ### Catálogos (exames e medicamentos)
 O nome e o valor dos exames, e o RMS/descrição/laboratório dos medicamentos, ficam no banco e são
 mantidos pelo administrador em **Configurações** (com importação de CSV). A receita escolhe os

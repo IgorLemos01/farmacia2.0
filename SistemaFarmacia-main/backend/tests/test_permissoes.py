@@ -19,7 +19,7 @@ def dados(client, auth):
     exame_cat = criar_catalogo(client, auth, "Hemograma", 13)
     medicamento = criar_medicamento(client, auth)
     manip = client.post("/api/manipulacoes", json={"cliente_id": cliente["id"], "formula": "Biotina"}, headers=auth).get_json()["manipulacao"]
-    exame = client.post("/api/exames", json={"cliente_id": cliente["id"], "catalogo_id": exame_cat["id"]}, headers=auth).get_json()["exame"]
+    exame = client.post("/api/exames", json={"cliente_id": cliente["id"], "itens": [{"catalogo_id": exame_cat["id"]}]}, headers=auth).get_json()["exame"]
     receita = client.post("/api/receitas", json={"cliente_id": cliente["id"], "itens": [{"catalogo_id": medicamento["id"]}]}, headers=auth).get_json()["receita"]
     return {"cliente": cliente["id"], "manip": manip["id"], "exame": exame["id"], "receita": receita["id"], "exame_cat": exame_cat["id"], "med": medicamento["id"]}
 
@@ -39,7 +39,7 @@ def _rotas(d):
     return [
         ("clientes: listar", "GET", "/api/clientes", None),
         ("clientes: ver um", "GET", f"/api/clientes/{c}", None),
-        ("clientes: criar", "POST", "/api/clientes", {**CLIENTE, "cpf": "999.999.999-99"}),
+        ("clientes: criar", "POST", "/api/clientes", {**CLIENTE, "cpf": None}),
         ("clientes: editar", "PUT", f"/api/clientes/{c}", {"telefone": "(75) 90000-0000"}),
         ("clientes: excluir", "DELETE", f"/api/clientes/{c}", None),
         ("clientes: dossiê", "GET", f"/api/clientes/{c}/dossie", None),
@@ -50,7 +50,7 @@ def _rotas(d):
         ("manipulações: excluir", "DELETE", f"/api/manipulacoes/{m}", None),
         ("exames: listar", "GET", "/api/exames", None),
         ("exames: ver um", "GET", f"/api/exames/{e}", None),
-        ("exames: criar", "POST", "/api/exames", {"cliente_id": c, "catalogo_id": d["exame_cat"]}),
+        ("exames: criar", "POST", "/api/exames", {"cliente_id": c, "itens": [{"catalogo_id": d["exame_cat"]}]}),
         ("exames: editar", "PUT", f"/api/exames/{e}", {"observacoes": "x"}),
         ("exames: excluir", "DELETE", f"/api/exames/{e}", None),
         ("receitas: listar", "GET", "/api/receitas", None),
@@ -60,19 +60,26 @@ def _rotas(d):
         ("receitas: excluir", "DELETE", f"/api/receitas/{r}", None),
         ("catálogo de exames: consultar", "GET", "/api/catalogo-exames?ativos=true", None),
         ("catálogo de medicamentos: consultar", "GET", "/api/catalogo-medicamentos?ativos=true", None),
+        ("catálogo de medicamentos: cadastrar", "POST", "/api/catalogo-medicamentos", {"descricao": "NOVO 10 MG"}),
+        ("farmacêuticos: listar", "GET", "/api/usuarios/farmaceuticos", None),
+        ("relatório de manipulação", "GET", "/api/relatorios/manipulacoes", None),
+        ("relatório de exames", "GET", "/api/relatorios/exames", None),
+        ("relatório de receitas", "GET", "/api/relatorios/receitas", None),
         ("usuários: listar", "GET", "/api/usuarios", None),
     ]
 
 
 # Rotas liberadas (as demais devem responder 403) para cada conjunto de módulos.
 LEITURA_CLIENTES = {"clientes: listar", "clientes: ver um"}
+# quem atende no balcão cadastra o paciente na hora (nome + telefone) e completa depois
+CADASTRO_CLIENTES = LEITURA_CLIENTES | {"clientes: criar", "clientes: editar"}
 LIBERADO = {
     "somente clientes": ({"clientes"}, {n for n, *_ in [
         ("clientes: listar",), ("clientes: ver um",), ("clientes: criar",), ("clientes: editar",), ("clientes: excluir",), ("clientes: dossiê",)]}),
-    "somente manipulações": ({"manipulacoes"}, LEITURA_CLIENTES | {"manipulações: listar", "manipulações: ver uma", "manipulações: criar", "manipulações: editar", "manipulações: excluir"}),
-    "somente exames": ({"exames"}, LEITURA_CLIENTES | {"exames: listar", "exames: ver um", "exames: criar", "exames: editar", "exames: excluir", "catálogo de exames: consultar"}),
-    "somente receitas": ({"receitas"}, LEITURA_CLIENTES | {"receitas: listar", "receitas: ver uma", "receitas: criar", "receitas: editar", "receitas: excluir", "catálogo de medicamentos: consultar"}),
-    "somente dashboard": ({"dashboard"}, LEITURA_CLIENTES | {"manipulações: listar", "manipulações: ver uma", "exames: listar", "exames: ver um", "receitas: listar", "receitas: ver uma"}),
+    "somente manipulações": ({"manipulacoes"}, CADASTRO_CLIENTES | {"manipulações: listar", "manipulações: ver uma", "manipulações: criar", "manipulações: editar", "manipulações: excluir", "relatório de manipulação"}),
+    "somente exames": ({"exames"}, CADASTRO_CLIENTES | {"exames: listar", "exames: ver um", "exames: criar", "exames: editar", "exames: excluir", "catálogo de exames: consultar", "relatório de exames"}),
+    "somente receitas": ({"receitas"}, CADASTRO_CLIENTES | {"receitas: listar", "receitas: ver uma", "receitas: criar", "receitas: editar", "receitas: excluir", "catálogo de medicamentos: consultar", "catálogo de medicamentos: cadastrar", "farmacêuticos: listar", "relatório de receitas"}),
+    "somente dashboard": ({"dashboard"}, LEITURA_CLIENTES | {"manipulações: listar", "manipulações: ver uma", "exames: listar", "exames: ver um", "receitas: listar", "receitas: ver uma", "farmacêuticos: listar", "relatório de manipulação", "relatório de exames", "relatório de receitas"}),
 }
 
 
@@ -96,7 +103,7 @@ def test_funcionario_so_acessa_o_que_foi_liberado(client, admin_token, dados, no
 def test_admin_acessa_tudo(client, auth, dados):
     # o dossiê, a leitura e as edições; as exclusões ficam de fora porque mudariam os dados
     for rota, metodo, url, corpo in _rotas(dados):
-        if metodo == "DELETE" or rota == "clientes: criar":
+        if metodo == "DELETE" or rota in ("clientes: criar", "catálogo de medicamentos: cadastrar"):
             continue
         assert _status(client, auth, metodo, url, corpo) != 403, rota
 
@@ -108,14 +115,14 @@ def test_combinar_modulos_soma_as_permissoes(client, admin_token, dados):
     assert _status(client, func, "GET", "/api/catalogo-exames") == 200
     assert _status(client, func, "GET", "/api/catalogo-medicamentos") == 200
     assert _status(client, func, "GET", "/api/manipulacoes") == 403
-    assert _status(client, func, "POST", "/api/clientes", {**CLIENTE, "cpf": "1"}) == 403
+    assert _status(client, func, "GET", f"/api/clientes/{dados['cliente']}/dossie") == 403
+    assert _status(client, func, "DELETE", f"/api/clientes/{dados['cliente']}") == 403
 
 
 def test_catalogos_nunca_sao_alterados_por_funcionario(client, admin_token, dados):
     func = _funcionario(client, admin_token, ["exames", "receitas", "dashboard", "clientes", "manipulacoes"])
     assert _status(client, func, "POST", "/api/catalogo-exames", {"nome": "Novo", "valor": 1}) == 403
     assert _status(client, func, "PUT", f"/api/catalogo-exames/{dados['exame_cat']}", {"valor": 0.01}) == 403
-    assert _status(client, func, "POST", "/api/catalogo-medicamentos", {"descricao": "Novo"}) == 403
     assert _status(client, func, "PUT", f"/api/catalogo-medicamentos/{dados['med']}", {"laboratorio": "X"}) == 403
     assert _status(client, func, "POST", "/api/catalogo-exames/importar", {"itens": [{"nome": "X", "valor": 1}]}) == 403
 

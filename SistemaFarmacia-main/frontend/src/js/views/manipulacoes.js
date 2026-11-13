@@ -3,13 +3,12 @@
 // ============================================================
 
 import { api } from '../api.js';
-import { botoesAcoes, confirmarEExcluir, escapeHtml as esc, hojeISO, ligarAcoes } from '../utils.js';
+import { formatarDataBR } from '../pdf.js';
+import { criarSeletorPaciente } from '../seletorPaciente.js';
+import { botoesAcoes, confirmarEExcluir, escapeHtml as esc, formatarMoeda, hojeISO, ligarAcoes } from '../utils.js';
 
 export async function renderManipulacoes(container) {
-  const [manipulacoes, clientes] = await Promise.all([
-    api.listarManipulacoes(),
-    api.listarClientes(),
-  ]);
+  const manipulacoes = await api.listarManipulacoes();
 
   container.innerHTML = `
     <div class="card" style="padding: 0; overflow: hidden;">
@@ -49,12 +48,12 @@ export async function renderManipulacoes(container) {
                       <td style="max-width: 280px;">
                         <div style="font-weight: 600; color: var(--color-primary-dark); font-size: 0.88rem;">${esc(m.formula)}</div>
                       </td>
-                      <td>${esc(m.data || '-')}</td>
+                      <td>${esc(formatarDataBR(m.data) || '-')}</td>
                       <td>
-                        <span class="badge badge-warning">📅 ${esc(m.prazo_entrega || 'A definir')}</span>
+                        <span class="badge badge-warning">📅 ${esc(formatarDataBR(m.prazo_entrega) || 'A definir')}</span>
                       </td>
                       <td>
-                        <div style="font-weight: 700;">R$ ${Number(m.valor || 0).toFixed(2)}</div>
+                        <div style="font-weight: 700;">${formatarMoeda(m.valor)}</div>
                         <div style="font-size: 0.72rem; color: var(--text-muted);">${esc(m.forma_pagamento || 'Não informado')}</div>
                       </td>
                       <td style="font-size: 0.78rem; color: var(--text-muted); max-width: 180px;">
@@ -71,24 +70,21 @@ export async function renderManipulacoes(container) {
 
     <!-- MODAL NOVA MANIPULAÇÃO -->
     <div class="modal-overlay" id="modalNovaManip">
-      <div class="modal-card">
+      <div class="modal-card modal-wide">
         <div class="modal-header">
           <h3 class="modal-title" id="tituloModalManip">Novo Pedido de Manipulação</h3>
           <button class="modal-close" id="btnFecharModalManip">&times;</button>
         </div>
-        <form id="formNovaManip">
+        <form id="formNovaManip" novalidate>
           <div class="form-grid">
             <div class="form-group form-group-full">
-              <label class="form-label">Selecionar Cliente <span class="req">*</span></label>
-              <select class="form-select" id="manip_cliente_id" required>
-                <option value="">-- Escolha um cliente --</option>
-                ${clientes.map(c => `<option value="${Number(c.id)}">${esc(c.nome)} (CPF: ${esc(c.cpf)})</option>`).join('')}
-              </select>
+              <label class="form-label" for="manip_paciente">Cliente / Paciente <span class="req">*</span></label>
+              <div id="manip_paciente_area"></div>
             </div>
 
             <div class="form-group form-group-full">
               <label class="form-label">Fórmula / Composição do Medicamento <span class="req">*</span></label>
-              <textarea class="form-textarea" id="manip_formula" required placeholder="Ex: Minoxidil 5%, Biotina 2mg, Loção qsp 60ml"></textarea>
+              <textarea class="form-textarea" id="manip_formula" placeholder="Ex: Minoxidil 5%, Biotina 2mg, Loção qsp 60ml"></textarea>
             </div>
 
             <div class="form-group">
@@ -103,7 +99,7 @@ export async function renderManipulacoes(container) {
 
             <div class="form-group">
               <label class="form-label">Valor (R$)</label>
-              <input type="number" step="0.01" class="form-input" id="manip_valor" placeholder="0.00"/>
+              <input type="number" step="0.01" min="0" class="form-input" id="manip_valor" placeholder="0,00"/>
             </div>
 
             <div class="form-group">
@@ -114,6 +110,7 @@ export async function renderManipulacoes(container) {
                 <option value="Cartão de Débito">Cartão de Débito</option>
                 <option value="Dinheiro">Dinheiro</option>
                 <option value="Outro">Outro</option>
+                <option value="">Não informado</option>
               </select>
             </div>
 
@@ -134,26 +131,29 @@ export async function renderManipulacoes(container) {
 
   const modal = document.getElementById('modalNovaManip');
   const form = document.getElementById('formNovaManip');
-  const selectCliente = document.getElementById('manip_cliente_id');
+  const seletor = criarSeletorPaciente({ raiz: document.getElementById('manip_paciente_area'), id: 'manip_paciente' });
   let editando = null;
 
-  function abrirModal(item = null) {
+  async function abrirModal(item = null) {
     editando = item;
     form.reset();
+    seletor.limpar({ focar: false });
     document.getElementById('tituloModalManip').textContent = item ? 'Editar Pedido de Manipulação' : 'Novo Pedido de Manipulação';
     document.getElementById('btnSalvarManip').textContent = item ? 'Salvar Alterações' : 'Registrar Manipulação';
-    // O paciente de um pedido já registrado não pode ser trocado.
-    selectCliente.disabled = !!item;
     if (item) {
-      selectCliente.value = String(item.cliente_id);
       document.getElementById('manip_formula').value = item.formula || '';
       document.getElementById('manip_data').value = item.data || '';
       document.getElementById('manip_prazo').value = item.prazo_entrega || '';
       document.getElementById('manip_valor').value = item.valor ?? '';
-      document.getElementById('manip_pagamento').value = item.forma_pagamento || 'PIX';
+      document.getElementById('manip_pagamento').value = item.forma_pagamento || '';
       document.getElementById('manip_obs').value = item.observacoes || '';
+      // O paciente de um pedido já registrado não pode ser trocado.
+      let dados;
+      try { dados = await api.obterCliente(item.cliente_id); } catch (_) { dados = { id: item.cliente_id, nome: item.cliente_nome || 'Paciente', telefone: '' }; }
+      seletor.definir(dados, { podeTrocar: false });
     }
     modal.classList.add('active');
+    if (!item) seletor.input.focus();
   }
   const fecharModal = () => modal.classList.remove('active');
 
@@ -173,19 +173,21 @@ export async function renderManipulacoes(container) {
 
   form.onsubmit = async (e) => {
     e.preventDefault();
+    const valorTexto = document.getElementById('manip_valor').value;
     const payload = {
       formula: document.getElementById('manip_formula').value.trim(),
-      data: document.getElementById('manip_data').value,
+      data: document.getElementById('manip_data').value || hojeISO(),
       prazo_entrega: document.getElementById('manip_prazo').value || null,
-      valor: parseFloat(document.getElementById('manip_valor').value) || 0,
-      forma_pagamento: document.getElementById('manip_pagamento').value,
+      valor: valorTexto === '' ? null : Number(valorTexto),
+      forma_pagamento: document.getElementById('manip_pagamento').value || null,
       observacoes: document.getElementById('manip_obs').value.trim() || null,
     };
+    if (!editando && !seletor.paciente) { alert('Escolha o cliente (ou cadastre um novo pela busca).'); return; }
+    if (!payload.formula) { alert('Informe a fórmula / composição.'); return; }
+    if (payload.valor !== null && (!Number.isFinite(payload.valor) || payload.valor < 0)) { alert('Valor inválido.'); return; }
     if (!editando) {
-      const clienteId = parseInt(selectCliente.value, 10);
-      const clienteSelecionado = clientes.find(c => c.id === clienteId);
-      payload.cliente_id = clienteId;
-      payload.cliente_nome = clienteSelecionado ? clienteSelecionado.nome : null;
+      payload.cliente_id = seletor.paciente.id;
+      payload.cliente_nome = seletor.paciente.nome;
     }
 
     try {

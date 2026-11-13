@@ -1,8 +1,8 @@
 from flask import request
 from flask_restx import Namespace, Resource, fields
-from app.auth_utils import modulo_required
+from app.auth_utils import modulo_required, usuario_atual
 
-from app.routes.campos import TextoOpcional
+from app.routes.campos import InteiroOpcional, TextoOpcional
 from app.services.receita_service import ReceitaService
 
 ns = Namespace("receitas", description="Gestão de receitas médicas vinculadas aos clientes")
@@ -14,12 +14,21 @@ modelo_receita_entrada = ns.model(
         "data_venda": TextoOpcional(required=False, example="2026-10-23", description="Data do atendimento/venda (AAAA-MM-DD)"),
         "medico_prescritor": TextoOpcional(required=False, example="Dr. Carlos Eduardo (CRM-SE 12345)", description="Médico prescritor (opcional)"),
         "observacoes": TextoOpcional(required=False, example="Tomar após as refeições", description="Instruções adicionais"),
+        "farmaceutico_id": InteiroOpcional(
+            required=False,
+            example=1,
+            description=(
+                "Farmacêutico responsável (usuário marcado como farmacêutico). Se omitido: o usuário logado, se for "
+                "farmacêutico; senão o único farmacêutico cadastrado. Com vários, é obrigatório escolher."
+            ),
+        ),
         "itens": fields.List(
             fields.Raw,
             required=True,
             description=(
-                "Medicamentos da receita (de 1 a 12). Cada item: {catalogo_id, dose?, posologia?, lote?, validade?, quantidade?}. "
-                "RMS, descrição e laboratório vêm do catálogo."
+                "Medicamentos da receita (de 1 a 12). Cada item: {catalogo_id, rms?, laboratorio?, dose?, posologia?, "
+                "lote?, validade?, quantidade?}. A descrição vem do catálogo; RMS e laboratório também, a não ser "
+                "que sejam enviados no item (correção só nesta receita)."
             ),
         ),
     },
@@ -31,6 +40,7 @@ modelo_receita_edicao = ns.model(
         "data_venda": TextoOpcional(required=False, example="2026-10-23"),
         "medico_prescritor": TextoOpcional(required=False, example="Dr. Carlos Eduardo (CRM-SE 12345)"),
         "observacoes": TextoOpcional(required=False, example="Tomar após as refeições"),
+        "farmaceutico_id": InteiroOpcional(required=False, example=1, description="Troca o farmacêutico responsável"),
         "itens": fields.List(
             fields.Raw,
             required=False,
@@ -71,7 +81,7 @@ class ReceitaListaCriacao(Resource):
         """Cadastrar nova receita"""
         dados = ns.payload
         try:
-            receita = ReceitaService.cadastrar(dados)
+            receita = ReceitaService.cadastrar(dados, ator=usuario_atual())
             return {"mensagem": "Receita registrada com sucesso.", "receita": receita.to_dict()}, 201
         except ValueError as e:
             ns.abort(400, str(e))
@@ -96,8 +106,10 @@ class ReceitaDetalhe(Resource):
         """Atualizar receita"""
         dados = ns.payload
         try:
-            receita = ReceitaService.atualizar(id, dados)
+            receita = ReceitaService.atualizar(id, dados or {})
             return {"mensagem": "Receita atualizada com sucesso.", "receita": receita.to_dict()}, 200
+        except LookupError as e:
+            ns.abort(404, str(e))
         except ValueError as e:
             ns.abort(400, str(e))
 
@@ -108,5 +120,7 @@ class ReceitaDetalhe(Resource):
         try:
             ReceitaService.deletar(id)
             return {"mensagem": "Receita excluída com sucesso."}, 200
+        except LookupError as e:
+            ns.abort(404, str(e))
         except ValueError as e:
             ns.abort(400, str(e))

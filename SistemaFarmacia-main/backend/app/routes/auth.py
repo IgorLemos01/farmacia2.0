@@ -4,6 +4,7 @@ from flask_restx import Namespace, Resource, fields
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.auth_utils import admin_required
+from app.routes.campos import TextoOpcional
 from app.extensions import db
 from app.models.usuario import Usuario
 from app.services.auth_service import AuthService, EmailJaCadastrado
@@ -31,6 +32,9 @@ modelo_cadastro = ns.model(
             example=["clientes", "receitas"],
             description="Módulos do funcionário (dashboard, clientes, manipulacoes, exames, receitas). Ignorado para admin.",
         ),
+        "cargo": TextoOpcional(required=False, example="Farmacêutico Responsável"),
+        "registro_profissional": TextoOpcional(required=False, example="CRF-SE 1234", description="Obrigatório para farmacêutico"),
+        "farmaceutico": fields.Boolean(required=False, example=False, description="Pode ser o farmacêutico responsável das receitas"),
     },
 )
 
@@ -66,6 +70,7 @@ class Cadastro(Resource):
                 dados.get("senha"),
                 dados.get("perfil", "funcionario"),
                 dados.get("modulos"),
+                {k: dados[k] for k in ("cargo", "registro_profissional", "farmaceutico") if k in dados},
             )
         except EmailJaCadastrado as e:
             ns.abort(409, str(e))  # 409 Conflict = e-mail duplicado

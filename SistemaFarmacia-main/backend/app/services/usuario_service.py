@@ -1,7 +1,7 @@
 from app.extensions import db
 from app.modulos import MODULOS, PERFIS, normalizar_modulos
 from app.models.usuario import Usuario
-from app.services.auth_service import gerar_hash, validar_senha
+from app.services.auth_service import gerar_hash, validar_dados_profissionais, validar_senha
 
 
 class UsuarioService:
@@ -14,7 +14,8 @@ class UsuarioService:
     @staticmethod
     def atualizar(usuario_id: int, dados: dict, ator_id: int) -> Usuario:
         """
-        Atualiza nome, perfil, módulos, situação (ativo) e/ou senha de um usuário.
+        Atualiza nome, perfil, módulos, situação (ativo), senha e/ou dados profissionais
+        (cargo, registro profissional/CRF e se é farmacêutico) de um usuário.
 
         - `admin` sempre acessa todos os módulos.
         - `funcionario` precisa ter pelo menos um módulo; se `modulos` não for enviado,
@@ -55,6 +56,8 @@ class UsuarioService:
 
         if "modulos" in dados:
             mudancas["modulos"] = normalizar_modulos(dados["modulos"])
+
+        mudancas.update(validar_dados_profissionais(dados, atual=usuario))
 
         # Resultado final de perfil + módulos (vale também quando só um dos dois foi enviado).
         perfil_final = mudancas.get("perfil", usuario.perfil)

@@ -149,71 +149,130 @@ def test_importar_recusa_itens_que_nao_sao_objetos(client, auth):
 
 
 # ───────────── exames registrados usam o catálogo ─────────────
+def _pedido(client, auth, cliente_id, *itens, **extra):
+    return client.post("/api/exames", json={"cliente_id": cliente_id, "itens": list(itens), **extra}, headers=auth)
+
+
 def test_exame_copia_nome_e_valor_do_catalogo(client, auth, cliente_id):
     item = criar_catalogo(client, auth, "Hemograma COMPLETO", 13)
-    resp = client.post("/api/exames", json={"cliente_id": cliente_id, "catalogo_id": item["id"]}, headers=auth)
+    resp = _pedido(client, auth, cliente_id, {"catalogo_id": item["id"]})
     assert resp.status_code == 201, resp.get_json()
     exame = resp.get_json()["exame"]
     assert (exame["tipo_exame"], exame["valor"]) == ("Hemograma COMPLETO", 13.0)
+    assert exame["itens"] == [{"id": exame["itens"][0]["id"], "catalogo_id": item["id"], "nome": "Hemograma COMPLETO", "valor": 13.0}]
 
 
-def test_valor_enviado_pelo_cliente_e_ignorado(client, auth, cliente_id):
+def test_nome_vem_do_catalogo_mas_valor_pode_ser_ajustado(client, auth, cliente_id):
     item = criar_catalogo(client, auth, "Hemograma", 13)
-    exame = client.post("/api/exames", json={
-        "cliente_id": cliente_id, "catalogo_id": item["id"], "valor": 1, "tipo_exame": "Outro nome",
-    }, headers=auth).get_json()["exame"]
-    assert (exame["tipo_exame"], exame["valor"]) == ("Hemograma", 13.0)
+    exame = _pedido(client, auth, cliente_id, {"catalogo_id": item["id"], "valor": 10.5, "nome": "Outro nome"}).get_json()["exame"]
+    assert (exame["tipo_exame"], exame["valor"]) == ("Hemograma", 10.5)
 
 
-@pytest.mark.parametrize("corpo", [
-    {"tipo_exame": "Digitado à mão", "valor": 5},    # fora do catálogo
+@pytest.mark.parametrize("item", [
+    {"nome": "Digitado à mão", "valor": 5},          # fora do catálogo
     {"catalogo_id": 999},                            # não existe
     {"catalogo_id": "1"},                            # tipo errado
     {"catalogo_id": True},
+    "texto",
 ])
-def test_nao_aceita_exame_fora_do_catalogo(client, auth, cliente_id, corpo):
+def test_nao_aceita_exame_fora_do_catalogo(client, auth, cliente_id, item):
     criar_catalogo(client, auth, "Hemograma", 13)
-    resp = client.post("/api/exames", json={"cliente_id": cliente_id, **corpo}, headers=auth)
+    assert _pedido(client, auth, cliente_id, item).status_code == 400
+
+
+@pytest.mark.parametrize("valor", [-1, "abc", True, 100000000])
+def test_valor_ajustado_invalido(client, auth, cliente_id, valor):
+    item = criar_catalogo(client, auth, "Hemograma", 13)
+    resp = _pedido(client, auth, cliente_id, {"catalogo_id": item["id"], "valor": valor})
     assert resp.status_code == 400
+    assert "Hemograma" in resp.get_json()["message"]
+
+
+def test_pedido_sem_itens_ou_com_itens_demais(client, auth, cliente_id):
+    item = criar_catalogo(client, auth, "Hemograma", 13)
+    assert _pedido(client, auth, cliente_id).status_code == 400
+    assert _pedido(client, auth, cliente_id, *[{"catalogo_id": item["id"]}] * 31).status_code == 400
+    assert _pedido(client, auth, cliente_id, *[{"catalogo_id": item["id"]}] * 30).status_code == 201
 
 
 def test_nao_registra_exame_desativado(client, auth, cliente_id):
     item = criar_catalogo(client, auth, "ASLO", 11)
     client.put(f"/api/catalogo-exames/{item['id']}", json={"ativo": False}, headers=auth)
-    resp = client.post("/api/exames", json={"cliente_id": cliente_id, "catalogo_id": item["id"]}, headers=auth)
-    assert resp.status_code == 400
+    assert _pedido(client, auth, cliente_id, {"catalogo_id": item["id"]}).status_code == 400
+
+
+def test_varios_exames_no_mesmo_atendimento_somam_o_total(client, auth, cliente_id):
+    """Feedback do cliente: o paciente faz vários exames na mesma visita."""
+    glicemia = criar_catalogo(client, auth, "Glicemia em jejum", 10)
+    gravidez = criar_catalogo(client, auth, "Teste de gravidez", 18)
+    urico = criar_catalogo(client, auth, "Ácido úrico", 12)
+    hemo = criar_catalogo(client, auth, "Hemograma", 20)
+    resp = _pedido(
+        client, auth, cliente_id,
+        {"catalogo_id": urico["id"]}, {"catalogo_id": glicemia["id"]},
+        {"catalogo_id": gravidez["id"], "valor": "15.50"}, {"catalogo_id": hemo["id"]},
+        forma_pagamento="PIX",
+    )
+    assert resp.status_code == 201, resp.get_json()
+    exame = resp.get_json()["exame"]
+    assert [i["nome"] for i in exame["itens"]] == ["Ácido úrico", "Glicemia em jejum", "Teste de gravidez", "Hemograma"]
+    assert exame["quantidade_exames"] == 4
+    assert exame["valor"] == 57.5
+    # histórico do cliente
+    historico = client.get(f"/api/clientes/{cliente_id}/dossie", headers=auth).get_json()["historico"]["exames"]
+    assert len(historico) == 1 and historico[0]["quantidade_exames"] == 4
 
 
 def test_mudar_preco_nao_altera_exames_ja_feitos(client, auth, cliente_id):
     item = criar_catalogo(client, auth, "Hemograma", 20)
-    feito = client.post("/api/exames", json={"cliente_id": cliente_id, "catalogo_id": item["id"]}, headers=auth).get_json()["exame"]
+    feito = _pedido(client, auth, cliente_id, {"catalogo_id": item["id"]}).get_json()["exame"]
 
     client.put(f"/api/catalogo-exames/{item['id']}", json={"valor": 25, "nome": "Hemograma Completo"}, headers=auth)
-    novo = client.post("/api/exames", json={"cliente_id": cliente_id, "catalogo_id": item["id"]}, headers=auth).get_json()["exame"]
+    novo = _pedido(client, auth, cliente_id, {"catalogo_id": item["id"]}).get_json()["exame"]
 
     antigo = client.get(f"/api/exames/{feito['id']}", headers=auth).get_json()
     assert (antigo["tipo_exame"], antigo["valor"]) == ("Hemograma", 20.0)       # passado intacto
     assert (novo["tipo_exame"], novo["valor"]) == ("Hemograma Completo", 25.0)  # novo usa o preço novo
 
 
-def test_editar_exame_nao_muda_nome_nem_valor(client, auth, cliente_id):
-    item = criar_catalogo(client, auth, "Hemograma", 13)
-    exame = client.post("/api/exames", json={"cliente_id": cliente_id, "catalogo_id": item["id"]}, headers=auth).get_json()["exame"]
+def test_editar_pedido_troca_itens_e_recalcula(client, auth, cliente_id):
+    a = criar_catalogo(client, auth, "Hemograma", 13)
+    b = criar_catalogo(client, auth, "TSH", 25)
+    exame = _pedido(client, auth, cliente_id, {"catalogo_id": a["id"]}).get_json()["exame"]
 
+    # o nome do catálogo muda depois; o item já salvo mantém o nome original
+    client.put(f"/api/catalogo-exames/{a['id']}", json={"nome": "Hemograma Novo"}, headers=auth)
     resp = client.put(f"/api/exames/{exame['id']}", json={
-        "tipo_exame": "Fraude", "valor": 0.01, "observacoes": "Resultado normal", "forma_pagamento": "PIX",
+        "itens": [{"id": exame["itens"][0]["id"], "valor": 11}, {"catalogo_id": b["id"]}],
+        "observacoes": "Resultado normal", "forma_pagamento": "PIX",
     }, headers=auth)
-    assert resp.status_code == 200
+    assert resp.status_code == 200, resp.get_json()
     editado = resp.get_json()["exame"]
-    assert (editado["tipo_exame"], editado["valor"]) == ("Hemograma", 13.0)
+    assert [(i["nome"], i["valor"]) for i in editado["itens"]] == [("Hemograma", 11.0), ("TSH", 25.0)]
+    assert editado["valor"] == 36.0
     assert (editado["observacoes"], editado["forma_pagamento"]) == ("Resultado normal", "PIX")
+
+    # editar só a observação mantém os itens
+    so_obs = client.put(f"/api/exames/{exame['id']}", json={"observacoes": "x", "tipo_exame": "Fraude"}, headers=auth).get_json()["exame"]
+    assert so_obs["valor"] == 36.0 and so_obs["tipo_exame"] == "Hemograma; TSH"
+
+    # item de outro pedido não pode ser "reaproveitado"
+    outro = _pedido(client, auth, cliente_id, {"catalogo_id": b["id"]}).get_json()["exame"]
+    assert client.put(f"/api/exames/{exame['id']}", json={"itens": [{"id": outro["itens"][0]["id"]}]}, headers=auth).status_code == 400
+
+
+def test_forma_de_pagamento_invalida(client, auth, cliente_id):
+    item = criar_catalogo(client, auth, "Hemograma", 13)
+    assert _pedido(client, auth, cliente_id, {"catalogo_id": item["id"]}, forma_pagamento="Fiado").status_code == 400
+    assert _pedido(client, auth, cliente_id, {"catalogo_id": item["id"]}, forma_pagamento=None).status_code == 201
 
 
 def test_excluir_exame_registrado(client, auth, cliente_id):
     item = criar_catalogo(client, auth, "Hemograma", 13)
-    exame = client.post("/api/exames", json={"cliente_id": cliente_id, "catalogo_id": item["id"]}, headers=auth).get_json()["exame"]
+    exame = _pedido(client, auth, cliente_id, {"catalogo_id": item["id"]}).get_json()["exame"]
     assert client.delete(f"/api/exames/{exame['id']}", headers=auth).status_code == 200
     assert client.get(f"/api/exames/{exame['id']}", headers=auth).status_code == 404
+    assert client.delete(f"/api/exames/{exame['id']}", headers=auth).status_code == 404
     # o catálogo não é afetado
     assert len(client.get("/api/catalogo-exames", headers=auth).get_json()["itens"]) == 1
 

@@ -3,28 +3,35 @@ from flask_restx import Namespace, Resource, fields
 from app.auth_utils import modulo_required
 
 from app.routes.campos import TextoOpcional
-from app.services.exame_service import ExameService
+from app.services.exame_service import FORMAS_PAGAMENTO as FORMAS, ExameService
 
 ns = Namespace("exames", description="Gestão de exames e procedimentos rápidos da farmácia")
 
-FORMAS_PAGAMENTO = ["Dinheiro", "Cartão de Crédito", "Cartão de Débito", "PIX", "Outro"]
+FORMAS_PAGAMENTO = list(FORMAS)
+
+_DESCRICAO_ITENS = (
+    "Exames do pedido (1 a 30). Item novo: {catalogo_id, valor?} — o nome vem do catálogo e o valor, "
+    "se omitido, também. Na edição, item já salvo: {id, valor?} (mantém o nome original)."
+)
 
 modelo_exame_entrada = ns.model(
     "ExameEntrada",
     {
         "cliente_id": fields.Integer(required=True, example=1, description="ID do cliente"),
-        "catalogo_id": fields.Integer(required=True, example=1, description="ID do exame no catálogo (nome e valor vêm de lá)"),
+        "itens": fields.List(fields.Raw, required=True, description=_DESCRICAO_ITENS,
+                             example=[{"catalogo_id": 1}, {"catalogo_id": 2, "valor": 15.5}]),
         "data": TextoOpcional(required=False, example="2026-10-23", description="Data de realização (AAAA-MM-DD)"),
-        "forma_pagamento": fields.String(required=False, enum=FORMAS_PAGAMENTO, example="PIX"),
-        "observacoes": TextoOpcional(required=False, example="Resultado: Glicemia em jejum 92 mg/dL. Normal."),
+        "forma_pagamento": TextoOpcional(required=False, example="PIX", description=" | ".join(FORMAS)),
+        "observacoes": TextoOpcional(required=False, example="Glicemia em jejum 92 mg/dL. Normal."),
     },
 )
 
 modelo_exame_edicao = ns.model(
     "ExameEdicao",
     {
+        "itens": fields.List(fields.Raw, required=False, description="Se enviada, substitui a lista. " + _DESCRICAO_ITENS),
         "data": TextoOpcional(required=False, example="2026-10-23"),
-        "forma_pagamento": fields.String(required=False, enum=FORMAS_PAGAMENTO, example="PIX"),
+        "forma_pagamento": TextoOpcional(required=False, enum=FORMAS_PAGAMENTO, example="PIX"),
         "observacoes": TextoOpcional(required=False, example="Resultado normal."),
     },
 )
@@ -53,9 +60,9 @@ class ExameListaCriacao(Resource):
 
     @modulo_required('exames')
     @ns.expect(modelo_exame_entrada, validate=True)
-    @ns.doc(description="Registra um novo exame para o cliente.", security="Bearer")
+    @ns.doc(description="Registra um pedido com um ou mais exames para o cliente; o total é calculado pelo servidor.", security="Bearer")
     def post(self):
-        """Registrar novo exame"""
+        """Registrar pedido de exames"""
         dados = ns.payload
         try:
             exame = ExameService.cadastrar(dados)
@@ -78,13 +85,15 @@ class ExameDetalhe(Resource):
 
     @modulo_required('exames')
     @ns.expect(modelo_exame_edicao, validate=False)
-    @ns.doc(description="Atualiza dados de um exame existente.", security="Bearer")
+    @ns.doc(description="Atualiza data, pagamento, observações e/ou a lista de exames (e seus valores).", security="Bearer")
     def put(self, id):
         """Atualizar exame"""
         dados = ns.payload
         try:
             exame = ExameService.atualizar(id, dados)
             return {"mensagem": "Exame atualizado com sucesso.", "exame": exame.to_dict()}, 200
+        except LookupError as e:
+            ns.abort(404, str(e))
         except ValueError as e:
             ns.abort(400, str(e))
 
@@ -95,5 +104,7 @@ class ExameDetalhe(Resource):
         try:
             ExameService.deletar(id)
             return {"mensagem": "Exame excluído com sucesso."}, 200
+        except LookupError as e:
+            ns.abort(404, str(e))
         except ValueError as e:
             ns.abort(400, str(e))

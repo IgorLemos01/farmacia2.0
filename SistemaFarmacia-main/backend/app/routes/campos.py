@@ -11,3 +11,9 @@ class NumeroOpcional(fields.Float):
     """Número opcional que também aceita null."""
 
     __schema_type__ = ["number", "null"]
+
+
+class InteiroOpcional(fields.Integer):
+    """Inteiro opcional que também aceita null."""
+
+    __schema_type__ = ["integer", "null"]

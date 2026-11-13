@@ -15,12 +15,12 @@ def catalogo_id(client, auth):
 
 def _resolver(payload, catalogo_id):
     """Troca o marcador "__CATALOGO__" pelo id real do exame criado no catálogo."""
-    return {k: (catalogo_id if v == "__CATALOGO__" else v) for k, v in payload.items()}
+    return {k: ([{"catalogo_id": catalogo_id}] if v == "__CATALOGO__" else v) for k, v in payload.items()}
 
 
 @pytest.mark.parametrize("rota,payload,chave", [
     ("/api/manipulacoes", {"formula": "Biotina 2mg", "valor": 30.5, "forma_pagamento": "PIX"}, "manipulacao"),
-    ("/api/exames", {"catalogo_id": "__CATALOGO__", "forma_pagamento": "Dinheiro"}, "exame"),
+    ("/api/exames", {"itens": "__CATALOGO__", "forma_pagamento": "Dinheiro"}, "exame"),
 ])
 def test_cadastrar_e_listar(client, auth, cliente_id, catalogo_id, rota, payload, chave):
     resp = client.post(rota, json={"cliente_id": cliente_id, **_resolver(payload, catalogo_id)}, headers=auth)
@@ -35,7 +35,7 @@ def test_cadastrar_e_listar(client, auth, cliente_id, catalogo_id, rota, payload
 @pytest.mark.parametrize("rota,payload,campo", [
     ("/api/manipulacoes", {"formula": "X"}, "data"),
     ("/api/manipulacoes", {"formula": "X"}, "prazo_entrega"),
-    ("/api/exames", {"catalogo_id": "__CATALOGO__"}, "data"),
+    ("/api/exames", {"itens": "__CATALOGO__"}, "data"),
 ])
 def test_data_invalida_retorna_400(client, auth, cliente_id, catalogo_id, rota, payload, campo):
     resp = client.post(rota, json={"cliente_id": cliente_id, **_resolver(payload, catalogo_id), campo: "31/12/2026"}, headers=auth)
@@ -44,7 +44,7 @@ def test_data_invalida_retorna_400(client, auth, cliente_id, catalogo_id, rota, 
 
 
 def test_cliente_inexistente_retorna_400(client, auth, catalogo_id):
-    resp = client.post("/api/exames", json={"cliente_id": 999, "catalogo_id": catalogo_id}, headers=auth)
+    resp = client.post("/api/exames", json={"cliente_id": 999, "itens": [{"catalogo_id": catalogo_id}]}, headers=auth)
     assert resp.status_code == 400
 
 
@@ -58,7 +58,8 @@ def test_manipulacao_com_opcionais_null(client, auth, cliente_id):
 
 def test_exame_com_opcionais_null(client, auth, cliente_id, catalogo_id):
     resp = client.post("/api/exames", json={
-        "cliente_id": cliente_id, "catalogo_id": catalogo_id, "data": None, "observacoes": None,
+        "cliente_id": cliente_id, "itens": [{"catalogo_id": catalogo_id, "valor": None}], "data": None,
+        "observacoes": None, "forma_pagamento": None,
     }, headers=auth)
     assert resp.status_code == 201, resp.get_json()
 

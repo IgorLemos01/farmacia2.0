@@ -20,6 +20,9 @@ def test_cpf_duplicado(client, auth):
     resp = client.post("/api/clientes", json=CLIENTE, headers=auth)
     assert resp.status_code == 400
     assert "CPF" in resp.get_json()["message"]
+    # o mesmo CPF digitado sem máscara também é reconhecido
+    resp = client.post("/api/clientes", json={**CLIENTE, "cpf": "52998224725"}, headers=auth)
+    assert resp.status_code == 400 and "Maria Souza" in resp.get_json()["message"]
 
 
 def test_data_invalida_no_cadastro_retorna_400(client, auth):
@@ -56,7 +59,7 @@ def test_dossie_reune_historico(client, auth):
     c = criar_cliente(client, auth)
     client.post("/api/manipulacoes", json={"cliente_id": c["id"], "formula": "Minoxidil 5%", "valor": 50}, headers=auth)
     exame = criar_catalogo(client, auth, "Glicemia", 10)
-    client.post("/api/exames", json={"cliente_id": c["id"], "catalogo_id": exame["id"]}, headers=auth)
+    client.post("/api/exames", json={"cliente_id": c["id"], "itens": [{"catalogo_id": exame["id"]}]}, headers=auth)
     med = criar_medicamento(client, auth)
     client.post("/api/receitas", json={"cliente_id": c["id"], "itens": [{"catalogo_id": med["id"]}]}, headers=auth)
 
@@ -73,10 +76,18 @@ def test_campos_opcionais_aceitam_null(client, auth):
 
 def test_editar_cliente_com_campo_obrigatorio_vazio_retorna_400(client, auth):
     c = criar_cliente(client, auth)
-    for campo in ("nome", "rg", "telefone", "email", "endereco"):
-        for vazio in ("", None):
+    for campo in ("nome", "telefone"):
+        for vazio in ("", "   ", None):
             resp = client.put(f"/api/clientes/{c['id']}", json={campo: vazio}, headers=auth)
             assert resp.status_code == 400, (campo, vazio)
+
+
+def test_campos_complementares_podem_ser_apagados(client, auth):
+    c = criar_cliente(client, auth)
+    resp = client.put(f"/api/clientes/{c['id']}", json={"rg": "", "email": None, "endereco": "  "}, headers=auth)
+    assert resp.status_code == 200
+    dados = resp.get_json()["cliente"]
+    assert (dados["rg"], dados["email"], dados["endereco"]) == (None, None, None)
 
 
 def test_excluir_cliente_sem_historico(client, auth):

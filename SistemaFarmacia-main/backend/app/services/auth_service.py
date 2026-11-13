@@ -25,6 +25,35 @@ def validar_senha(senha) -> str:
     return senha
 
 
+def validar_dados_profissionais(dados: dict, atual=None) -> dict:
+    """
+    Valida cargo, registro profissional (CRF) e a marca de farmacêutico.
+
+    Só os campos enviados entram no resultado. Quem é marcado como farmacêutico
+    precisa ter o registro profissional (sai na receita impressa).
+    """
+    from app.utils import texto_opcional
+
+    resultado = {}
+    if "cargo" in dados:
+        resultado["cargo"] = texto_opcional(dados["cargo"], 80, "Cargo")
+    if "registro_profissional" in dados:
+        registro = dados["registro_profissional"]
+        if isinstance(registro, str):
+            registro = " ".join(registro.split()).upper()
+        resultado["registro_profissional"] = texto_opcional(registro, 40, "Registro profissional (CRF)")
+    if "farmaceutico" in dados:
+        if not isinstance(dados["farmaceutico"], bool):
+            raise ValueError("O campo 'farmaceutico' deve ser verdadeiro ou falso.")
+        resultado["farmaceutico"] = dados["farmaceutico"]
+
+    farmaceutico = resultado.get("farmaceutico", bool(atual.farmaceutico) if atual else False)
+    registro = resultado.get("registro_profissional", atual.registro_profissional if atual else None)
+    if farmaceutico and not registro:
+        raise ValueError("Informe o registro profissional (CRF) do farmacêutico.")
+    return resultado
+
+
 class AuthService:
     """
     Camada de serviço responsável pelas regras de negócio de autenticação.
@@ -34,7 +63,9 @@ class AuthService:
     """
 
     @staticmethod
-    def cadastrar(nome: str, email: str, senha: str, perfil: str = "funcionario", modulos=None) -> Usuario:
+    def cadastrar(
+        nome: str, email: str, senha: str, perfil: str = "funcionario", modulos=None, profissionais: dict | None = None
+    ) -> Usuario:
         """
         Cria um novo usuário no banco.
 
@@ -63,10 +94,12 @@ class AuthService:
         if perfil != "admin" and not lista:
             raise ValueError("Escolha ao menos um módulo para o funcionário.")
 
+        extras = validar_dados_profissionais(profissionais or {})
+
         if Usuario.query.filter_by(email=email).first():
             raise EmailJaCadastrado("E-mail já cadastrado.")
 
-        usuario = Usuario(nome=nome, email=email, senha_hash=gerar_hash(senha), perfil=perfil)
+        usuario = Usuario(nome=nome, email=email, senha_hash=gerar_hash(senha), perfil=perfil, **extras)
         usuario.definir_modulos(lista)
         db.session.add(usuario)
         db.session.commit()

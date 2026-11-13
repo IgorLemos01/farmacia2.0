@@ -23,7 +23,8 @@ def test_funcionario_consulta_mas_nao_altera(client, auth, auth_funcionario):
     lista = client.get("/api/catalogo-medicamentos?ativos=true", headers=auth_funcionario)
     assert lista.status_code == 200 and len(lista.get_json()["itens"]) == 1
 
-    assert _post(client, auth_funcionario, descricao="Novo", rms="1").status_code == 403
+    # cadastrar na hora (produto recém-chegado) é permitido a quem lança receitas
+    assert _post(client, auth_funcionario, descricao="Novo", rms="1").status_code == 201
     assert client.put(f"/api/catalogo-medicamentos/{med['id']}", json={"laboratorio": "X"}, headers=auth_funcionario).status_code == 403
     assert client.post("/api/catalogo-medicamentos/importar", json={"itens": [{"descricao": "X"}]}, headers=auth_funcionario).status_code == 403
 
@@ -59,7 +60,9 @@ def test_rms_em_notacao_cientifica_e_recusado(client, auth):
 
 def test_mesmo_rms_e_descricao_nao_repete_mas_rms_igual_com_outra_descricao_pode(client, auth):
     criar_medicamento(client, auth, "AMOXICILINA 500 MG", "111")
-    assert _post(client, auth, descricao="amoxicilina  500 mg", rms="111").status_code == 400   # mesma coisa
+    repetido = _post(client, auth, descricao="amoxicilina  500 mg", rms="111")                  # mesma coisa
+    assert repetido.status_code == 409
+    assert repetido.get_json()["medicamento"]["descricao"] == "AMOXICILINA 500 MG"            # devolve o existente
     assert _post(client, auth, descricao="AMOXICILINA 250 MG", rms="111").status_code == 201    # outra apresentação
     assert _post(client, auth, descricao="AMOXICILINA 500 MG", rms="222").status_code == 201    # outro RMS
 

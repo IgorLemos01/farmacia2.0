@@ -1,13 +1,73 @@
 import datetime
+
 from app.extensions import db
-from app.models.exame import Exame
 from app.models.catalogo_exame import CatalogoExame
 from app.models.cliente import Cliente
-from app.utils import parse_data
+from app.models.exame import Exame, ExameItem
+from app.utils import parse_data, parse_valor, texto_opcional
+
+FORMAS_PAGAMENTO = ("Dinheiro", "Cartão de Crédito", "Cartão de Débito", "PIX", "Outro")
+MAX_ITENS = 30  # exames por atendimento
+
+
+def _forma_pagamento(valor):
+    if valor in (None, ""):
+        return None
+    if valor not in FORMAS_PAGAMENTO:
+        raise ValueError("Forma de pagamento inválida.")
+    return valor
+
+
+def _id_inteiro(valor) -> bool:
+    return isinstance(valor, int) and not isinstance(valor, bool)
+
+
+def _montar_itens(itens, pedido_atual: Exame | None = None) -> list[ExameItem]:
+    """
+    Converte a lista enviada em ExameItem.
+
+    - Item novo: `{catalogo_id, valor?}` — o nome é copiado do catálogo; o valor é o do catálogo,
+      a menos que o atendente informe outro (desconto, preço combinado etc.).
+    - Item já salvo (edição): `{id, valor?}` — mantém o nome original, mesmo que o catálogo
+      tenha mudado depois; o valor pode ser corrigido.
+    """
+    if not isinstance(itens, list) or not itens:
+        raise ValueError("Adicione pelo menos um exame ao pedido.")
+    if len(itens) > MAX_ITENS:
+        raise ValueError(f"Um pedido pode ter no máximo {MAX_ITENS} exames.")
+
+    existentes = {i.id: i for i in pedido_atual.itens} if pedido_atual else {}
+    novos = []
+    for posicao, bruto in enumerate(itens, start=1):
+        if not isinstance(bruto, dict):
+            raise ValueError(f"Exame {posicao}: formato inválido.")
+
+        catalogo_id = bruto.get("catalogo_id")
+        if catalogo_id is not None:
+            item = db.session.get(CatalogoExame, catalogo_id) if _id_inteiro(catalogo_id) else None
+            if item is None or not item.ativo:
+                raise ValueError(f"Exame {posicao}: escolha um exame da lista do catálogo.")
+            nome, valor_padrao, origem = item.nome, item.valor, item.id
+        elif _id_inteiro(bruto.get("id")) and bruto["id"] in existentes:
+            antigo = existentes[bruto["id"]]
+            nome, valor_padrao, origem = antigo.nome, antigo.valor, antigo.catalogo_id
+        else:
+            raise ValueError(f"Exame {posicao}: escolha um exame da lista do catálogo.")
+
+        if bruto.get("valor") in (None, ""):
+            valor = valor_padrao
+        else:
+            try:
+                valor = parse_valor(bruto["valor"], "Valor")
+            except ValueError as e:
+                raise ValueError(f"Exame {posicao} ({nome}): {e}")
+
+        novos.append(ExameItem(ordem=posicao, catalogo_id=origem, nome=nome, valor=valor))
+    return novos
 
 
 class ExameService:
-    """Regras de negócio para registro de exames."""
+    """Regras de negócio para pedidos de exames (vários exames por atendimento)."""
 
     @staticmethod
     def listar(cliente_id: int = None, limite: int = 50, pagina: int = 1):
@@ -16,7 +76,7 @@ class ExameService:
             query = query.filter_by(cliente_id=cliente_id)
 
         query = query.order_by(Exame.data.desc(), Exame.id.desc())
-        paginacao = query.paginate(page=pagina, per_page=limite, error_out=False)
+        paginacao = query.paginate(page=pagina, per_page=max(1, min(limite or 50, 200)), error_out=False)
 
         return {
             "total": paginacao.total,
@@ -34,55 +94,50 @@ class ExameService:
         cliente_id = dados.get("cliente_id")
         if not cliente_id:
             raise ValueError("O ID do cliente (cliente_id) é obrigatório.")
-
-        cliente = db.session.get(Cliente, cliente_id)
-        if not cliente:
+        if not db.session.get(Cliente, cliente_id):
             raise ValueError(f"Cliente com ID {cliente_id} não encontrado.")
 
-        # O exame é sempre escolhido no catálogo: nome e valor vêm de lá (não do pedido),
-        # e ficam copiados no registro, de modo que mudar o preço depois não altera o passado.
-        catalogo_id = dados.get("catalogo_id")
-        item = db.session.get(CatalogoExame, catalogo_id) if isinstance(catalogo_id, int) and not isinstance(catalogo_id, bool) else None
-        if item is None or not item.ativo:
-            raise ValueError("Escolha um exame da lista do catálogo.")
-
-        data_exame = parse_data(dados.get("data"), "Data do exame") or datetime.date.today()
-
-        exame = Exame(
+        pedido = Exame(
             cliente_id=cliente_id,
-            tipo_exame=item.nome,
-            data=data_exame,
-            valor=item.valor,
-            forma_pagamento=dados.get("forma_pagamento"),
-            observacoes=dados.get("observacoes"),
+            data=parse_data(dados.get("data"), "Data do exame") or datetime.date.today(),
+            forma_pagamento=_forma_pagamento(dados.get("forma_pagamento")),
+            observacoes=texto_opcional(dados.get("observacoes"), 5000, "Observações"),
+            itens=_montar_itens(dados.get("itens")),
         )
-
-        db.session.add(exame)
+        pedido.recalcular_total()
+        db.session.add(pedido)
         db.session.commit()
-        return exame
+        return pedido
 
     @staticmethod
     def atualizar(exame_id: int, dados: dict) -> Exame:
-        exame = db.session.get(Exame, exame_id)
-        if not exame:
-            raise ValueError("Exame não encontrado.")
+        pedido = db.session.get(Exame, exame_id)
+        if not pedido:
+            raise LookupError("Exame não encontrado.")
+        dados = dados or {}
 
+        # Valida tudo antes de alterar qualquer campo.
+        itens = _montar_itens(dados["itens"], pedido) if "itens" in dados else None
+        mudancas = {}
         if "data" in dados and dados["data"]:
-            exame.data = parse_data(dados["data"], "Data do exame")
-        # Nome e valor do exame não são editáveis: vêm do catálogo (só o administrador
-        # muda preços, lá). Para corrigir o exame, exclua o registro e cadastre de novo.
+            mudancas["data"] = parse_data(dados["data"], "Data do exame")
         if "forma_pagamento" in dados:
-            exame.forma_pagamento = dados["forma_pagamento"]
+            mudancas["forma_pagamento"] = _forma_pagamento(dados["forma_pagamento"])
         if "observacoes" in dados:
-            exame.observacoes = dados["observacoes"]
+            mudancas["observacoes"] = texto_opcional(dados["observacoes"], 5000, "Observações")
 
+        for campo, valor in mudancas.items():
+            setattr(pedido, campo, valor)
+        if itens is not None:
+            pedido.itens = itens  # os antigos são apagados (delete-orphan)
+            pedido.recalcular_total()
         db.session.commit()
-        return exame
+        return pedido
 
     @staticmethod
     def deletar(exame_id: int):
-        exame = db.session.get(Exame, exame_id)
-        if not exame:
-            raise ValueError("Exame não encontrado.")
-        db.session.delete(exame)
+        pedido = db.session.get(Exame, exame_id)
+        if not pedido:
+            raise LookupError("Exame não encontrado.")
+        db.session.delete(pedido)
         db.session.commit()

@@ -2,7 +2,20 @@ import datetime
 from app.extensions import db
 from app.models.manipulacao import Manipulacao
 from app.models.cliente import Cliente
-from app.utils import parse_data, texto_obrigatorio
+from app.services.exame_service import FORMAS_PAGAMENTO
+from app.utils import parse_data, parse_valor, texto_obrigatorio, texto_opcional
+
+
+def _valor(valor):
+    return None if valor in (None, "") else parse_valor(valor, "Valor")
+
+
+def _forma(valor):
+    if valor in (None, ""):
+        return None
+    if valor not in FORMAS_PAGAMENTO:
+        raise ValueError("Forma de pagamento inválida.")
+    return valor
 
 
 class ManipulacaoService:
@@ -38,7 +51,7 @@ class ManipulacaoService:
         if not cliente:
             raise ValueError(f"Cliente com ID {cliente_id} não encontrado.")
 
-        formula = dados.get("formula", "").strip()
+        formula = (dados.get("formula") or "").strip() if isinstance(dados.get("formula"), (str, type(None))) else ""
         if not formula:
             raise ValueError("A fórmula/composição do medicamento é obrigatória.")
 
@@ -50,9 +63,9 @@ class ManipulacaoService:
             data=data_pedido,
             formula=formula,
             prazo_entrega=prazo,
-            valor=dados.get("valor"),
-            forma_pagamento=dados.get("forma_pagamento"),
-            observacoes=dados.get("observacoes"),
+            valor=_valor(dados.get("valor")),
+            forma_pagamento=_forma(dados.get("forma_pagamento")),
+            observacoes=texto_opcional(dados.get("observacoes"), 5000, "Observações"),
         )
 
         db.session.add(manipulacao)
@@ -72,11 +85,11 @@ class ManipulacaoService:
         if "prazo_entrega" in dados:
             manipulacao.prazo_entrega = parse_data(dados["prazo_entrega"], "Prazo de entrega")
         if "valor" in dados:
-            manipulacao.valor = dados["valor"]
+            manipulacao.valor = _valor(dados["valor"])
         if "forma_pagamento" in dados:
-            manipulacao.forma_pagamento = dados["forma_pagamento"]
+            manipulacao.forma_pagamento = _forma(dados["forma_pagamento"])
         if "observacoes" in dados:
-            manipulacao.observacoes = dados["observacoes"]
+            manipulacao.observacoes = texto_opcional(dados["observacoes"], 5000, "Observações")
 
         db.session.commit()
         return manipulacao

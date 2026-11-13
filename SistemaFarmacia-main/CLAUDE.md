@@ -132,8 +132,9 @@ usuários em **Configurações → Usuários**, escolhendo o **perfil** e os **m
 - `admin`: todos os módulos + Configurações (usuários e catálogos).
 - `funcionario`: só os módulos marcados (`dashboard`, `clientes`, `manipulacoes`, `exames`, `receitas`;
   ao menos um). Guardados em `usuarios.modulos`, separados por vírgula.
-- Dashboard é só consulta das listas dos outros módulos. Quem tem Manipulações, Exames ou Receitas também
-  consulta a lista de Clientes (para escolher o paciente); o dossiê do cliente exige o módulo Clientes.
+- Dashboard é só consulta das listas e dos relatórios de todas as categorias. Quem tem Manipulações, Exames ou
+  Receitas também **consulta, cadastra (cadastro rápido) e completa** clientes, para atender no balcão; excluir e
+  abrir o dossiê exigem o módulo Clientes. O relatório de uma categoria vale para quem tem aquele módulo ou o Dashboard.
 - Permissões são lidas do banco a cada chamada: mudar módulos ou desativar vale **na hora**, sem novo login.
 - Senha: mínimo de 6 caracteres. Recomendado como próximo passo: limite de tentativas de login e mínimo de 8.
 
@@ -171,12 +172,33 @@ Você verá a interface do Swagger com todos os endpoints disponíveis para test
 | POST   | /api/auth/login          | Retorna token JWT                                                |
 | GET    | /api/auth/me             | Dados do usuário logado, com perfil e módulos (requer token)     |
 
-## Endpoints de Usuários (somente admin)
+## Endpoints de Usuários
 
-| Método | Rota                | Descrição                                                    |
-|--------|---------------------|--------------------------------------------------------------|
-| GET    | /api/usuarios       | Lista os usuários                                            |
-| PUT    | /api/usuarios/{id}  | Altera nome, perfil, módulos, ativo (desativar) ou a senha  |
+| Método | Rota                        | Quem                    | Descrição                                                    |
+|--------|-----------------------------|-------------------------|--------------------------------------------------------------|
+| GET    | /api/usuarios               | admin                   | Lista os usuários                                            |
+| PUT    | /api/usuarios/{id}          | admin                   | Altera nome, perfil, módulos, ativo, senha, `cargo`, `registro_profissional` (CRF) e `farmaceutico` |
+| GET    | /api/usuarios/farmaceuticos | receitas ou dashboard   | Farmacêuticos ativos (nome, cargo, CRF) para escolher o responsável da receita |
+
+**Farmacêutico responsável (nada fixo no código)**: em Configurações → Usuários o admin marca "É farmacêutico" e
+informa cargo e CRF (obrigatório para farmacêutico). Na receita: se o usuário logado é farmacêutico, ele assina; se
+não, o único farmacêutico cadastrado é usado; com vários, o atendente escolhe o do turno (obrigatório). Sem nenhum
+farmacêutico cadastrado, a ficha sai com o campo em branco (assinatura à mão). Nome, cargo e CRF são **copiados** para
+a receita (`receitas.farmaceutico_*`): mudar o usuário depois não altera receitas emitidas. Relatórios exportados
+trazem "Emitido por" com nome, cargo e CRF do usuário logado.
+
+## Clientes (cadastro progressivo)
+
+- Obrigatórios: **nome** e **telefone/WhatsApp** (10 ou 11 dígitos com DDD; gravado como `(79) 99999-9999`).
+  Todo o resto é opcional: CPF (validado pelos dígitos verificadores e único **quando informado**), RG, nascimento,
+  sexo, e-mail, CEP, endereço em partes (`endereco` = rua, `numero`, `complemento`, `bairro`, `cidade`, `estado`).
+- `PUT /api/clientes/{id}` altera **só os campos enviados** (completar aos poucos); `null`/vazio apaga um opcional.
+  CPF antigo fora do padrão não é revalidado se não mudar.
+- A API devolve `cadastro_completo`, `campos_pendentes` e `endereco_completo`.
+- Nas telas de Manipulação, Exames e Receitas o paciente é escolhido por busca (`src/js/seletorPaciente.js`):
+  mostra o **alerta de alergia** em destaque, tem "+ Cadastrar novo cliente" (cadastro rápido por cima do pedido) e
+  "Completar agora" quando faltam dados. O formulário de cliente é um só: `src/js/formCliente.js`.
+- Validações iguais no backend (`app/utils.py`) e no frontend (`src/js/validacao.js`).
 
 ## Endpoints do Catálogo de Exames
 
@@ -190,11 +212,12 @@ Você verá a interface do Swagger com todos os endpoints disponíveis para test
 Como funciona:
 - O catálogo mora no **banco** (tabela `catalogo_exames`, criada sozinha na primeira execução;
   o SQL manual está em `backend/db/`). Nunca coloque preços no código: o repositório é público.
-- **Exame é sempre escolhido no catálogo**: `POST /api/exames` exige `catalogo_id`; nome e valor
-  são **copiados** para o registro e valem para sempre. Mudar o preço no catálogo não altera exames
-  já feitos. O valor enviado pelo cliente é ignorado.
-- Exame registrado não muda de nome/valor (`PUT /api/exames` só altera data, pagamento e
-  observações). Para corrigir, exclua o registro e cadastre de novo.
+- **Um atendimento tem vários exames** (tabela `exames` = pedido; `exame_itens` = cada exame, de 1 a 30).
+  `POST /api/exames` recebe `itens: [{catalogo_id, valor?}]`: o **nome** vem sempre do catálogo (copiado); o
+  **valor** vem do catálogo, mas pode ser ajustado no atendimento. O total (`exames.valor`) é calculado pelo servidor.
+- `PUT /api/exames/{id}` com `itens` substitui a lista: `{id, valor?}` mantém um item já salvo (com o nome da época),
+  `{catalogo_id, valor?}` inclui um novo. Sem `itens`, altera só data, pagamento e observações.
+- Na tela, a busca do catálogo adiciona exames num "carrinho" (Enter ou clique), com valor editável e total na hora.
 - "Remover" do catálogo apenas desativa (`ativo=false`): some da lista de escolha, o histórico fica.
 - Nomes são únicos sem diferenciar maiúsculas; nomes de 1 letra são válidos (ex.: `K`).
 - Na tela: **Configurações → Catálogo de Exames** (só admin). A importação lê um CSV no navegador
@@ -204,14 +227,15 @@ Como funciona:
 
 ## Receitas e catálogo de medicamentos
 
-**Catálogo** (tabela `catalogo_medicamentos`: RMS, descrição, laboratório) — mesmas regras do catálogo
-de exames: só o admin cria/edita/desativa/importa; qualquer logado consulta. A identidade de um item é
-o par **RMS + descrição**. Tela: **Configurações → Catálogo de Medicamentos**.
+**Catálogo** (tabela `catalogo_medicamentos`: RMS, descrição, laboratório). Quem lança receitas consulta e
+**cadastra** (produto recém-chegado, pelo "+ Cadastrar novo medicamento" da própria receita); editar, desativar e
+importar é só do admin. A identidade de um item é o par **RMS + descrição**; cadastrar um que já existe e está ativo
+responde **409** com o existente em `medicamento` (a tela usa esse). Tela: **Configurações → Catálogo de Medicamentos**.
 
 | Método | Rota                                | Quem            | Descrição                                           |
 |--------|-------------------------------------|-----------------|-----------------------------------------------------|
 | GET    | /api/catalogo-medicamentos?ativos=true | quem tem o módulo | Lista (só os disponíveis com `ativos=true`)         |
-| POST   | /api/catalogo-medicamentos          | admin           | Adiciona (`descricao`, `rms`?, `laboratorio`?)      |
+| POST   | /api/catalogo-medicamentos          | admin ou receitas | Adiciona (`descricao`, `rms`?, `laboratorio`?); 409 se já existe |
 | PUT    | /api/catalogo-medicamentos/{id}     | admin           | Altera campos ou `ativo` (false = remover)          |
 | POST   | /api/catalogo-medicamentos/importar | admin           | Importa `{itens: [{rms, descricao, laboratorio}]}`  |
 
@@ -219,20 +243,44 @@ o par **RMS + descrição**. Tela: **Configurações → Catálogo de Medicament
   ignoradas, então a planilha de estoque serve). O RMS tem 13 dígitos e é tratado como **texto**:
   **não abra e salve o CSV no Excel** (ele converte para notação científica e apaga dígitos; a importação
   recusa essas linhas). Reimportar atualiza o laboratório de quem já existe e nunca apaga nada.
-- **Receita** = cabeçalho (`receitas`: paciente, data, médico opcional, observações) + itens
-  (`receita_itens`). `POST /api/receitas` recebe `itens: [{catalogo_id, dose?, posologia?, lote?, validade?,
-  quantidade?}]` (de 1 a 12). **RMS, descrição e laboratório são copiados do catálogo** no momento da
-  receita e não mudam se o catálogo mudar. No `PUT`, `itens` substitui a lista; `{id}` de um item existente
-  mantém a cópia original, `{catalogo_id}` troca por um do catálogo.
-- Medicamento é sempre escolhido do catálogo (a tela e a API recusam texto livre).
-- **PDF**: gerado no navegador com jsPDF (carregado sob demanda, ~130 KB comprimido, só quando se pede o
-  PDF), no padrão da ficha da farmácia. Textos fixos em `src/js/pdf.js` (`EMPRESA`, `FARMACEUTICO`,
-  `AVISO_LEGAL`). A ficha tem no mínimo 3 blocos de medicamento (em branco para preencher à mão). Dose,
-  posologia, médico e observações ficam salvos no sistema mas **não saem no PDF** (a ficha não tem
-  espaço para eles).
+- **Receita** = cabeçalho (`receitas`: paciente, data, médico opcional, observações, farmacêutico) + itens
+  (`receita_itens`). `POST /api/receitas` recebe `farmaceutico_id?` e `itens: [{catalogo_id, rms?, laboratorio?,
+  dose?, posologia?, lote?, validade?, quantidade?}]` (de 1 a 12). A **descrição** vem do catálogo; **RMS e
+  laboratório** também, a não ser que venham no item (correção só nesta receita, ex.: a caixa entregue é da Simed e
+  não da Prati; o catálogo não muda). No `PUT`, `itens` substitui a lista; `{id}` de um item existente mantém a
+  cópia original, `{catalogo_id}` troca por um do catálogo.
+- **Dose e posologia são opcionais** (o nome comercial costuma trazer a dosagem: "ALPRAZOLAM 0,25 MG").
+- Medicamento é sempre escolhido do catálogo; se não existe, "+ Cadastrar novo medicamento" na busca.
+- **Impressão/PDF** (`src/js/pdf.js`): folha de **cheque, 175 × 80 mm** (paisagem), gerada no navegador com jsPDF
+  (carregado sob demanda). Só os medicamentos lançados aparecem (sem blocos em branco), **até 3 por folha**; com
+  mais, gera outras folhas, cada uma com cabeçalho e paciente. "Imprimir" abre a impressão direto (use escala 100%);
+  "PDF" baixa o arquivo. Textos fixos: `EMPRESA` e `AVISO_LEGAL`; o farmacêutico vem da receita. Dose, posologia,
+  médico e observações ficam salvos no sistema mas **não saem na ficha**.
 - **Mudança de banco**: `receitas` perdeu a coluna `medicamentos` e ganhou `observacoes`
   (`medico_prescritor` agora é opcional), e existe a tabela nova `receita_itens`. Se o banco já tinha a
   tabela `receitas` antiga, apague-a antes (`DROP TABLE receitas;`) para a nova ser criada.
+
+## Relatórios (Dashboard)
+
+`GET /api/relatorios/{manipulacoes|exames|receitas}?de=&ate=&pagina=&limite=&todos=` — cada categoria isolada, com
+o próprio período. `resumo` cobre o período inteiro (quantidade, clientes atendidos, faturamento, ticket médio, por
+forma de pagamento, por dia, exames mais realizados / medicamentos mais dispensados); `itens` traz a página
+(`limite` até 200) ou, com `todos=true`, todas as linhas (até 10 000) para exportar.
+
+Na tela, o Dashboard tem as abas **Visão Geral · Manipulação · Exames · Receitas**. Cada aba guarda o próprio
+período (mudar/limpar a data de uma não mexe nas outras), mostra métricas, gráfico, tabela paginada (20/50/100) e
+exporta **PDF** (A4 paisagem) e **Excel** (.xlsx de verdade, gerado sem biblioteca em `src/js/xlsx.js`) com os
+cabeçalhos da categoria. Colunas e exportação: `src/js/relatorios.js`. Há também `@media print` em
+`components.css` para imprimir a tela sem menu e botões.
+
+## Mudança de banco (feedback de novembro/2026)
+
+Banco novo: nada a fazer (`db.create_all()` ou `backend/db/schema*.sql`). Banco que já existia: **faça backup** e
+rode uma vez `backend/db/migracoes/2026-11-feedback_mysql.sql` (MySQL) ou `..._sqlserver.sql` (SQL Server). Ela torna
+opcionais os campos de cliente, cria as colunas de endereço, cria `exame_itens` e converte cada exame antigo em um
+pedido com 1 item, e acrescenta cargo/CRF/farmacêutico em `usuarios` e o farmacêutico em `receitas`. O script do
+MySQL foi testado em MariaDB 10.11; o do SQL Server ainda não foi executado num servidor real.
+Depois, marque em Configurações → Usuários quem é farmacêutico (com o CRF).
 
 ## Editar e excluir registros
 

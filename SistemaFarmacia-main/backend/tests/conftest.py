@@ -57,7 +57,7 @@ def auth(admin_token):
 
 CLIENTE = {
     "nome": "Maria Souza",
-    "cpf": "111.222.333-44",
+    "cpf": "529.982.247-25",
     "rg": "1.234.567",
     "data_nascimento": "1990-05-15",
     "sexo": "F",

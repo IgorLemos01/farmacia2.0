@@ -1,6 +1,7 @@
 -- =============================================================
 --  FARMÁCIA COUTO — SCRIPT T-SQL PARA O SQL SERVER (SSMS)
 --  Compatível com SQL Server 2016, 2019, 2022+ e SSMS 22
+--  Banco já existente (versão anterior)? Use db/migracoes/2026-11-feedback_sqlserver.sql
 -- =============================================================
 
 -- 1. Criação do Banco de Dados
@@ -26,6 +27,9 @@ BEGIN
         perfil      NVARCHAR(20)        NOT NULL DEFAULT 'funcionario',
         modulos     NVARCHAR(200)       NOT NULL DEFAULT '',   -- ex.: 'clientes,receitas' (o admin acessa todos)
         ativo       BIT                 NOT NULL DEFAULT 1,
+        cargo                 NVARCHAR(80)  NULL,          -- ex.: 'Farmacêutico Responsável'
+        registro_profissional NVARCHAR(40)  NULL,          -- ex.: 'CRF-SE 1234'
+        farmaceutico          BIT           NOT NULL DEFAULT 0,  -- 1 = pode ser o responsável das receitas
         criado_em   DATETIME            NOT NULL DEFAULT GETDATE(),
 
         CONSTRAINT pk_usuarios PRIMARY KEY (id),
@@ -36,35 +40,42 @@ END
 GO
 
 -- -------------------------------------------------------------
--- 3. Tabela CLIENTES
+-- 3. Tabela CLIENTES — cadastro progressivo: só nome e telefone são obrigatórios.
+--    CPF é único quando informado (índice único FILTRADO: vários clientes podem ficar sem CPF).
 -- -------------------------------------------------------------
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'clientes')
 BEGIN
     CREATE TABLE clientes (
         id               INT IDENTITY(1,1)   NOT NULL,
-        
-        -- Campos obrigatórios (NOT NULL)
-        nome             NVARCHAR(150)       NOT NULL,
-        cpf              NVARCHAR(14)        NOT NULL,
-        rg               NVARCHAR(20)        NOT NULL,
-        data_nascimento  DATE                NOT NULL,
-        sexo             NVARCHAR(10)        NOT NULL,
-        telefone         NVARCHAR(20)        NOT NULL,
-        email            NVARCHAR(150)       NOT NULL,
-        endereco         NVARCHAR(300)       NOT NULL,
 
-        -- Campos opcionais
+        -- Obrigatórios
+        nome             NVARCHAR(150)       NOT NULL,
+        telefone         NVARCHAR(20)        NOT NULL,   -- WhatsApp / telefone principal
+
+        -- Opcionais
+        cpf              NVARCHAR(14)        NULL,
+        rg               NVARCHAR(20)        NULL,
+        data_nascimento  DATE                NULL,
+        sexo             NVARCHAR(10)        NULL,
+        email            NVARCHAR(150)       NULL,
+        cep              NVARCHAR(9)         NULL,
+        endereco         NVARCHAR(300)       NULL,       -- rua / logradouro
+        numero           NVARCHAR(20)        NULL,
+        complemento      NVARCHAR(100)       NULL,
+        bairro           NVARCHAR(100)       NULL,
+        cidade           NVARCHAR(100)       NULL,
+        estado           NCHAR(2)            NULL,
         alergia          NVARCHAR(MAX)       NULL,
         observacoes      NVARCHAR(MAX)       NULL,
 
         criado_em        DATETIME            NOT NULL DEFAULT GETDATE(),
 
         CONSTRAINT pk_clientes PRIMARY KEY (id),
-        CONSTRAINT uq_clientes_cpf UNIQUE (cpf),
-        CONSTRAINT chk_clientes_sexo CHECK (sexo IN ('M', 'F', 'Outro'))
+        CONSTRAINT chk_clientes_sexo CHECK (sexo IS NULL OR sexo IN ('M', 'F', 'Outro'))
     );
 
     CREATE NONCLUSTERED INDEX idx_clientes_nome ON clientes(nome);
+    CREATE UNIQUE NONCLUSTERED INDEX uq_clientes_cpf ON clientes(cpf) WHERE cpf IS NOT NULL;
 END
 GO
 
@@ -94,14 +105,14 @@ END
 GO
 
 -- -------------------------------------------------------------
--- 5. Tabela EXAMES
+-- 5. Tabela EXAMES — pedido de exames de um atendimento (vários exames por visita).
+--    `valor` = total do pedido (soma de EXAME_ITENS).
 -- -------------------------------------------------------------
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'exames')
 BEGIN
     CREATE TABLE exames (
         id              INT IDENTITY(1,1)   NOT NULL,
         cliente_id      INT                 NOT NULL,
-        tipo_exame      NVARCHAR(200)       NOT NULL,
         data            DATE                NOT NULL DEFAULT CAST(GETDATE() AS DATE),
         valor           DECIMAL(10, 2)      NULL,
         forma_pagamento NVARCHAR(50)        NULL,
@@ -114,6 +125,29 @@ BEGIN
     );
 
     CREATE NONCLUSTERED INDEX idx_exames_cliente ON exames(cliente_id);
+    CREATE NONCLUSTERED INDEX idx_exames_data ON exames(data);
+END
+GO
+
+-- -------------------------------------------------------------
+-- 5.1 Tabela EXAME_ITENS — cada exame do pedido (nome copiado do catálogo; valor ajustável)
+-- -------------------------------------------------------------
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'exame_itens')
+BEGIN
+    CREATE TABLE exame_itens (
+        id              INT IDENTITY(1,1)   NOT NULL,
+        exame_id        INT                 NOT NULL,
+        ordem           INT                 NOT NULL DEFAULT 0,
+        catalogo_id     INT                 NULL,
+        nome            NVARCHAR(200)       NOT NULL,
+        valor           DECIMAL(10, 2)      NOT NULL DEFAULT 0,
+
+        CONSTRAINT pk_exame_itens PRIMARY KEY (id),
+        CONSTRAINT fk_exame_itens_exame FOREIGN KEY (exame_id)
+            REFERENCES exames(id) ON DELETE CASCADE
+    );
+
+    CREATE NONCLUSTERED INDEX idx_exame_itens_exame ON exame_itens(exame_id);
 END
 GO
 
@@ -130,9 +164,15 @@ BEGIN
         data_venda          DATE                NOT NULL DEFAULT CAST(GETDATE() AS DATE),
         medico_prescritor   NVARCHAR(200)       NULL,
         observacoes         NVARCHAR(MAX)       NULL,
+        -- Farmacêutico responsável: cópia do usuário no momento da receita
+        farmaceutico_id       INT               NULL,
+        farmaceutico_nome     NVARCHAR(120)     NULL,
+        farmaceutico_cargo    NVARCHAR(80)      NULL,
+        farmaceutico_registro NVARCHAR(40)      NULL,
         criado_em           DATETIME            NOT NULL DEFAULT GETDATE(),
 
         CONSTRAINT pk_receitas PRIMARY KEY (id),
+        CONSTRAINT fk_receitas_farmaceutico FOREIGN KEY (farmaceutico_id) REFERENCES usuarios(id),
         CONSTRAINT fk_receitas_cliente FOREIGN KEY (cliente_id) 
             REFERENCES clientes(id) ON UPDATE CASCADE ON DELETE NO ACTION
     );

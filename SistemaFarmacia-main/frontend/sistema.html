@@ -188,8 +188,9 @@
         </div>
 
         <div class="page-actions">
-          <button class="btn btn-secondary" onclick="alert('Exportando relatório consolidado...')">
-            Exportar Relatório
+          <button class="btn btn-secondary" id="btnExportarRelatorio" type="button" title="Relatórios por categoria, com exportação em PDF e Excel"
+                  onclick="window.appRouter.navigate('dashboard')">
+            Relatórios
           </button>
           <button class="btn btn-primary" id="btnNovoAtendimento" onclick="window.appRouter.navigate('clientes')">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>

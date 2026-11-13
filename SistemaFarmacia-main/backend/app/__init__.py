@@ -84,6 +84,7 @@ def create_app(config_extra: dict | None = None) -> Flask:
     from app.routes.usuarios import ns as usuarios_ns
     from app.routes.catalogo_exames import ns as catalogo_ns
     from app.routes.catalogo_medicamentos import ns as catalogo_med_ns
+    from app.routes.relatorios import ns as relatorios_ns
 
     api.add_namespace(auth_ns)
     api.add_namespace(clientes_ns)
@@ -93,6 +94,7 @@ def create_app(config_extra: dict | None = None) -> Flask:
     api.add_namespace(usuarios_ns)
     api.add_namespace(catalogo_ns)
     api.add_namespace(catalogo_med_ns)
+    api.add_namespace(relatorios_ns)
 
     # --- Comandos de terminal (criar-admin, redefinir-senha) ---
     from app.cli import registrar as registrar_comandos
