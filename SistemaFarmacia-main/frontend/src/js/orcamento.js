@@ -1,10 +1,11 @@
 // ============================================================
-//  ORÇAMENTO DE EXAMES (PDF) — gerado na tela de Exames, sem salvar nada.
-//  A4 em pé: dados da farmácia, cliente (se escolhido), lista de exames com
-//  valores, total, validade e quem emitiu (usuário logado).
+//  ORÇAMENTOS EM PDF — Exames e Manipulação
+//  Gerados no formulário, sem salvar o atendimento. Podem ser baixados (PDF)
+//  ou impressos direto. A4 em pé: dados da farmácia, cliente (se escolhido),
+//  itens com valores, total, detalhes (ex.: prazo), validade e quem emitiu.
 // ============================================================
 
-import { EMPRESA, formatarDataBR } from './pdf.js';
+import { EMPRESA, formatarDataBR, imprimirDocumento } from './pdf.js';
 
 /** Dados públicos da farmácia (os mesmos do rodapé do site). */
 export const DADOS_FARMACIA = {
@@ -15,6 +16,12 @@ export const DADOS_FARMACIA = {
 /** Por quantos dias o orçamento vale. */
 export const VALIDADE_DIAS = 7;
 
+/** Título, cabeçalho da coluna e nome do arquivo de cada tipo de orçamento. */
+export const TIPOS_ORCAMENTO = {
+  exames: { titulo: 'ORÇAMENTO DE EXAMES', coluna: 'Exame', arquivo: 'orcamento-exames', contagem: 'exame(s)' },
+  manipulacao: { titulo: 'ORÇAMENTO DE MANIPULAÇÃO', coluna: 'Fórmula / composição', arquivo: 'orcamento-manipulacao', contagem: 'fórmula(s)' },
+};
+
 const moeda = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v) || 0);
 
 function somarDias(iso, dias) {
@@ -23,25 +30,28 @@ function somarDias(iso, dias) {
   return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`;
 }
 
-export function nomeArquivoOrcamento(cliente, data) {
+export function nomeArquivoOrcamento(cliente, data, tipo = 'exames') {
   const nome = String(cliente?.nome || 'cliente').normalize('NFD').replace(/[̀-ͯ]/g, '')
     .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'cliente';
-  return `orcamento-exames-${nome}-${data}.pdf`;
+  return `${TIPOS_ORCAMENTO[tipo].arquivo}-${nome}-${data}.pdf`;
 }
 
 /**
  * @param {Function} JsPDF
  * @param {object} p
- * @param {{nome:string, valor:number}[]} p.itens   Exames e valores.
+ * @param {'exames'|'manipulacao'} [p.tipo='exames']
+ * @param {{nome:string, valor:number}[]} p.itens   Itens e valores.
  * @param {object} [p.cliente]  Cliente escolhido (nome, telefone) — opcional.
  * @param {string} p.data       Data do orçamento (AAAA-MM-DD).
+ * @param {[string, string][]} [p.detalhes]  Linhas extras, ex.: [['Prazo de entrega', '20/11/2026']].
  * @param {object} [p.usuario]  Quem emitiu (nome, cargo, registro_profissional).
  */
-export function montarPdfOrcamento(JsPDF, { itens, cliente = null, data, usuario = null }) {
+export function montarPdfOrcamento(JsPDF, { tipo = 'exames', itens, cliente = null, data, detalhes = [], usuario = null }) {
+  const cfg = TIPOS_ORCAMENTO[tipo];
   const doc = new JsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
   const L = 210, M = 18, LARG = L - 2 * M;
   const total = itens.reduce((t, i) => t + (Number(i.valor) || 0), 0);
-  doc.setProperties({ title: `Orçamento de exames — ${cliente?.nome || 'cliente'}`, subject: EMPRESA, creator: EMPRESA });
+  doc.setProperties({ title: `${cfg.titulo} — ${cliente?.nome || 'cliente'}`, subject: EMPRESA, creator: EMPRESA });
 
   let y = 20;
   doc.setFont('helvetica', 'bold');
@@ -59,7 +69,7 @@ export function montarPdfOrcamento(JsPDF, { itens, cliente = null, data, usuario
   y += 22;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
-  doc.text('ORÇAMENTO DE EXAMES', M, y);
+  doc.text(cfg.titulo, M, y);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
   doc.text(`Data: ${formatarDataBR(data)}`, M + LARG, y, { align: 'right' });
@@ -77,14 +87,14 @@ export function montarPdfOrcamento(JsPDF, { itens, cliente = null, data, usuario
     doc.text(cliente.telefone, M + LARG, y, { align: 'right' });
   }
 
-  // Tabela de exames
+  // Tabela
   y += 9;
   doc.setFillColor(237, 242, 252);
   doc.rect(M, y, LARG, 8, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   doc.text('#', M + 3, y + 5.4);
-  doc.text('Exame', M + 12, y + 5.4);
+  doc.text(cfg.coluna, M + 12, y + 5.4);
   doc.text('Valor', M + LARG - 3, y + 5.4, { align: 'right' });
   y += 8;
   doc.setFont('helvetica', 'normal');
@@ -111,9 +121,24 @@ export function montarPdfOrcamento(JsPDF, { itens, cliente = null, data, usuario
   doc.setTextColor(0);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9.5);
-  doc.text(`${itens.length} exame(s)`, M, y + 6.8);
+  doc.text(`${itens.length} ${cfg.contagem}`, M, y + 6.8);
+  y += 18;
 
-  y += 20;
+  // Detalhes (prazo de entrega, observações...)
+  const preenchidos = detalhes.filter(([, valor]) => valor);
+  if (preenchidos.length) {
+    doc.setFontSize(10);
+    for (const [rotulo, valor] of preenchidos) {
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${rotulo}:`, M, y);
+      doc.setFont('helvetica', 'normal');
+      const linhas = doc.splitTextToSize(String(valor), LARG - 42);
+      doc.text(linhas, M + 40, y);
+      y += linhas.length * 4.8 + 2;
+    }
+    y += 4;
+  }
+
   doc.setFontSize(9);
   doc.setTextColor(70);
   const avisos = [
@@ -129,10 +154,21 @@ export function montarPdfOrcamento(JsPDF, { itens, cliente = null, data, usuario
   return doc;
 }
 
-export async function baixarPdfOrcamento(dados) {
+async function montar(dados) {
   const { jsPDF } = await import('jspdf');
-  const doc = montarPdfOrcamento(jsPDF, dados);
-  const arquivo = nomeArquivoOrcamento(dados.cliente, dados.data);
+  return montarPdfOrcamento(jsPDF, dados);
+}
+
+/** Baixa o orçamento em PDF. */
+export async function baixarPdfOrcamento(dados) {
+  const doc = await montar(dados);
+  const arquivo = nomeArquivoOrcamento(dados.cliente, dados.data, dados.tipo);
   doc.save(arquivo);
   return arquivo;
+}
+
+/** Abre a impressão do orçamento direto (sem baixar). */
+export async function imprimirPdfOrcamento(dados) {
+  const doc = await montar(dados);
+  await imprimirDocumento(doc, nomeArquivoOrcamento(dados.cliente, dados.data, dados.tipo), 'Impressão do orçamento');
 }

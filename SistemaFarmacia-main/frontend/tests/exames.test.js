@@ -184,6 +184,23 @@ describe('orçamento em PDF', () => {
     vi.doUnmock('../src/js/orcamento.js');
   });
 
+  it('o botão de impressora imprime o mesmo orçamento direto', async () => {
+    vi.resetModules();
+    vi.stubEnv('VITE_API_URL', '');
+    const imprimir = vi.fn(async () => {});
+    vi.doMock('../src/js/orcamento.js', async () => ({ ...(await vi.importActual('../src/js/orcamento.js')), imprimirPdfOrcamento: imprimir }));
+    const { renderExames } = await import('../src/js/views/exames.js');
+    document.body.innerHTML = '<div id="c"></div>';
+    await renderExames(document.getElementById('c'));
+    campo('btnAbrirModalExame').click();
+    await digitarEEscolher(busca(), 'glic', 'Glicemia');
+    campo('btnImprimirOrcamentoExame').click();
+    await vi.waitFor(() => expect(imprimir).toHaveBeenCalledOnce());
+    expect(imprimir.mock.calls[0][0]).toMatchObject({ tipo: 'exames', itens: [{ nome: 'Glicemia em jejum', valor: 10 }], cliente: null });
+    expect(ler('exames')).toEqual([]);
+    vi.doUnmock('../src/js/orcamento.js');
+  });
+
   it('o PDF traz a farmácia, o cliente, cada exame com valor, o total e a validade', async () => {
     const { montarPdfOrcamento, nomeArquivoOrcamento } = await import('../src/js/orcamento.js');
     const { jsPDF } = await import('jspdf');

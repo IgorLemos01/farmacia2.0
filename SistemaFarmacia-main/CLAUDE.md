@@ -223,9 +223,10 @@ Como funciona:
 - `PUT /api/exames/{id}` com `itens` substitui a lista: `{id, valor?}` mantém um item já salvo (com o nome da época),
   `{catalogo_id, valor?}` inclui um novo. Sem `itens`, altera só data, pagamento e observações.
 - Na tela, a busca do catálogo adiciona exames num "carrinho" (Enter ou clique), com valor editável e total na hora.
-- **Orçamento em PDF** (`src/js/orcamento.js`): botão "Gerar orçamento (PDF)" no formulário de exames. A4 em pé com
-  dados da farmácia, cliente (se escolhido), exames e valores, total, validade (`VALIDADE_DIAS` = 7) e quem emitiu.
-  Não salva o atendimento.
+- **Orçamento** (`src/js/orcamento.js`) nos formulários de **Exames** e de **Manipulação**: botões "Gerar orçamento
+  (PDF)" (baixa) e "Imprimir orçamento" (abre a impressão direto, pelo mesmo `imprimirDocumento` da receita).
+  A4 em pé com dados da farmácia, cliente (se escolhido), itens e valores, total, detalhes (na manipulação: prazo de
+  entrega e observações), validade (`VALIDADE_DIAS` = 7) e quem emitiu. Não salva o atendimento.
 - "Remover" do catálogo apenas desativa (`ativo=false`): some da lista de escolha, o histórico fica.
 - Nomes são únicos sem diferenciar maiúsculas; nomes de 1 letra são válidos (ex.: `K`).
 - Na tela: **Configurações → Catálogo de Exames** (só admin). A importação lê um CSV no navegador

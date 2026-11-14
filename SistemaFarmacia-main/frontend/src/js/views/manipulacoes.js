@@ -2,7 +2,8 @@
 //  VIEW: MANIPULAÇÕES DE MEDICAMENTOS
 // ============================================================
 
-import { api } from '../api.js';
+import { api, sessao } from '../api.js';
+import { baixarPdfOrcamento, imprimirPdfOrcamento } from '../orcamento.js';
 import { formatarDataBR } from '../pdf.js';
 import { criarSeletorPaciente } from '../seletorPaciente.js';
 import { botoesAcoes, confirmarEExcluir, escapeHtml as esc, formatarMoeda, hojeISO, ligarAcoes } from '../utils.js';
@@ -120,8 +121,10 @@ export async function renderManipulacoes(container) {
             </div>
           </div>
 
-          <div style="display: flex; justify-content: flex-end; gap: 12px;">
+          <div class="form-acoes">
             <button type="button" class="btn btn-secondary" id="btnCancelarManip">Cancelar</button>
+            <button type="button" class="btn btn-secondary" id="btnOrcamentoManip" title="Baixa o orçamento em PDF, sem salvar o pedido">📄 Gerar orçamento (PDF)</button>
+            <button type="button" class="btn btn-secondary" id="btnImprimirOrcamentoManip" title="Imprime o orçamento direto, sem salvar o pedido"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Imprimir orçamento</button>
             <button type="submit" class="btn btn-primary" id="btnSalvarManip">Registrar Manipulação</button>
           </div>
         </form>
@@ -170,6 +173,41 @@ export async function renderManipulacoes(container) {
       aoConcluir: () => renderManipulacoes(container),
     }),
   });
+
+  // ── Orçamento: baixar PDF ou imprimir (não salva o pedido) ──
+  function dadosOrcamento() {
+    const formula = document.getElementById('manip_formula').value.trim();
+    if (!formula) throw new Error('Informe a fórmula / composição para gerar o orçamento.');
+    const texto = document.getElementById('manip_valor').value;
+    const valor = Number(texto);
+    if (texto === '' || !Number.isFinite(valor) || valor < 0) throw new Error('Informe o valor da fórmula para gerar o orçamento.');
+    return {
+      tipo: 'manipulacao',
+      itens: [{ nome: formula, valor }],
+      cliente: seletor.paciente,
+      data: hojeISO(),
+      detalhes: [
+        ['Prazo de entrega', formatarDataBR(document.getElementById('manip_prazo').value)],
+        ['Observações', document.getElementById('manip_obs').value.trim()],
+      ],
+      usuario: sessao.usuario(),
+    };
+  }
+
+  async function orcamento(botao, gerar) {
+    let dados;
+    try { dados = dadosOrcamento(); } catch (err) { alert(err.message); return; }
+    botao.disabled = true;
+    try {
+      await gerar(dados);
+    } catch (err) {
+      alert('Não foi possível gerar o orçamento: ' + err.message);
+    } finally {
+      botao.disabled = false;
+    }
+  }
+  document.getElementById('btnOrcamentoManip').onclick = () => orcamento(document.getElementById('btnOrcamentoManip'), baixarPdfOrcamento);
+  document.getElementById('btnImprimirOrcamentoManip').onclick = () => orcamento(document.getElementById('btnImprimirOrcamentoManip'), imprimirPdfOrcamento);
 
   form.onsubmit = async (e) => {
     e.preventDefault();

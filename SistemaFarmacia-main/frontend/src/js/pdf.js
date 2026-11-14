@@ -238,19 +238,18 @@ export async function baixarPdfReceita(receita, paciente) {
 }
 
 /**
- * Abre a impressão da ficha direto (sem baixar arquivo). O PDF já tem o tamanho de
- * folha de cheque; na janela de impressão, use "Tamanho real" / escala 100%.
- * Se o navegador não conseguir imprimir pelo quadro oculto, baixa o PDF.
+ * Abre a janela de impressão de um PDF já montado (sem baixar arquivo), por um quadro oculto.
+ * Se o navegador não conseguir imprimir assim, baixa o PDF com `nomeArquivo` para imprimir.
+ * Usado pela receita e pelos orçamentos.
  */
-export async function imprimirPdfReceita(receita, paciente) {
-  const doc = montarPdfReceita(await carregarJsPdf(), receita, paciente);
+export async function imprimirDocumento(doc, nomeArquivo, titulo = 'Impressão') {
   const url = URL.createObjectURL(doc.output('blob'));
   const quadro = document.createElement('iframe');
   quadro.className = 'quadro-impressao';
-  quadro.title = 'Impressão da receita';
+  quadro.title = titulo;
   await new Promise(resolve => {
     let pronto = false;
-    const baixar = () => doc.save(nomeArquivoReceita(receita, paciente));
+    const baixar = () => doc.save(nomeArquivo);
     quadro.onload = () => {
       if (pronto) return;
       pronto = true;
@@ -269,4 +268,13 @@ export async function imprimirPdfReceita(receita, paciente) {
   });
   // limpa depois (a janela de impressão precisa do documento aberto)
   setTimeout(() => { quadro.remove(); URL.revokeObjectURL(url); }, 60000);
+}
+
+/**
+ * Abre a impressão da ficha direto (sem baixar arquivo). O PDF já tem o tamanho de
+ * folha de cheque; na janela de impressão, use "Tamanho real" / escala 100%.
+ */
+export async function imprimirPdfReceita(receita, paciente) {
+  const doc = montarPdfReceita(await carregarJsPdf(), receita, paciente);
+  await imprimirDocumento(doc, nomeArquivoReceita(receita, paciente), 'Impressão da receita');
 }

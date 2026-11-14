@@ -7,7 +7,7 @@
 // ============================================================
 
 import { api, sessao } from '../api.js';
-import { baixarPdfOrcamento } from '../orcamento.js';
+import { baixarPdfOrcamento, imprimirPdfOrcamento } from '../orcamento.js';
 import { criarAutocomplete } from '../autocomplete.js';
 import { parseValorBR } from '../csv.js';
 import { formatarDataBR } from '../pdf.js';
@@ -135,7 +135,8 @@ export async function renderExames(container) {
 
           <div class="form-acoes">
             <button type="button" class="btn btn-secondary" id="btnCancelarExame">Cancelar</button>
-            <button type="button" class="btn btn-secondary" id="btnOrcamentoExame" title="Gera um PDF de orçamento com os exames e valores, sem salvar o atendimento">📄 Gerar orçamento (PDF)</button>
+            <button type="button" class="btn btn-secondary" id="btnOrcamentoExame" title="Baixa o orçamento em PDF, sem salvar o atendimento">📄 Gerar orçamento (PDF)</button>
+            <button type="button" class="btn btn-secondary" id="btnImprimirOrcamentoExame" title="Imprime o orçamento direto, sem salvar o atendimento"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Imprimir orçamento</button>
             <button type="submit" class="btn btn-primary" id="btnSalvarExame">Salvar Exames</button>
           </div>
         </form>
@@ -335,26 +336,32 @@ export async function renderExames(container) {
     }
   };
 
-  // ── Orçamento em PDF (não salva o atendimento) ──────────
-  campo('btnOrcamentoExame').onclick = async () => {
+  // ── Orçamento: baixar PDF ou imprimir (não salva o atendimento) ──
+  function dadosOrcamento() {
     const todas = linhas();
-    if (!todas.length) { alert('Adicione pelo menos um exame para gerar o orçamento.'); return; }
-    const itens = [];
-    for (const [i, tr] of todas.entries()) {
+    if (!todas.length) throw new Error('Adicione pelo menos um exame para gerar o orçamento.');
+    const itens = todas.map((tr, i) => {
       const valor = valorDaLinha(tr);
-      if (valor === null) { alert(`Exame ${i + 1} (${tr.dataset.nome}): informe um valor válido, ex.: 15,00.`); return; }
-      itens.push({ nome: tr.dataset.nome, valor });
-    }
-    const botao = campo('btnOrcamentoExame');
+      if (valor === null) throw new Error(`Exame ${i + 1} (${tr.dataset.nome}): informe um valor válido, ex.: 15,00.`);
+      return { nome: tr.dataset.nome, valor };
+    });
+    return { tipo: 'exames', itens, cliente: seletor.paciente, data: hojeISO(), usuario: sessao.usuario() };
+  }
+
+  async function orcamento(botao, gerar) {
+    let dados;
+    try { dados = dadosOrcamento(); } catch (err) { alert(err.message); return; }
     botao.disabled = true;
     try {
-      await baixarPdfOrcamento({ itens, cliente: seletor.paciente, data: hojeISO(), usuario: sessao.usuario() });
+      await gerar(dados);
     } catch (err) {
       alert('Não foi possível gerar o orçamento: ' + err.message);
     } finally {
       botao.disabled = false;
     }
-  };
+  }
+  campo('btnOrcamentoExame').onclick = () => orcamento(campo('btnOrcamentoExame'), baixarPdfOrcamento);
+  campo('btnImprimirOrcamentoExame').onclick = () => orcamento(campo('btnImprimirOrcamentoExame'), imprimirPdfOrcamento);
 
   // Enter na busca sem lista aberta não envia o formulário
   busca.addEventListener('keydown', ev => { if (ev.key === 'Enter') ev.preventDefault(); });
