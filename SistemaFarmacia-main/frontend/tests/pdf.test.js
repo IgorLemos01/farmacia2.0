@@ -41,18 +41,28 @@ describe('montarPdfReceita', () => {
   it('traz os campos da ficha da farmácia, com os dados do paciente e do medicamento', async () => {
     const { texto } = await gerar({ data_venda: '2026-10-30', farmaceutico: FARMACEUTICO, itens: [item(1, { medicamento: 'ALPRAZOLAM 0,25 MG 30 CPRS', rms: '1023506630034', lote: '4Q6312' })] });
     for (const esperado of [
-      'FARM', 'COUTO LTDA', 'NOME COMPLETO:', 'Igor Lemos', 'RG:', '36452718', 'CPF:', '123.456.789-00',
-      'DATA NASC.:', '01/10/1999', 'CONTATO:', '(79) 98845-3518', 'MEDICAMENTO:', 'ALPRAZOLAM 0,25 MG 30 CPRS',
-      'RMS:', '1023506630034', 'LOTE:', '4Q6312', 'VALIDADE:', '02/2027', 'QUANT.:', 'DATA:', '30/10/26', 'ASS:',
+      'FARM', 'COUTO LTDA', 'NOME:', 'Igor Lemos', 'RG:', '36452718', 'CPF:', '123.456.789-00',
+      'NASC.:', '01/10/1999', 'CONTATO:', '(79) 98845-3518', 'MEDICAMENTO:', 'ALPRAZOLAM 0,25 MG 30 CPRS',
+      'RMS:', '1023506630034', 'LOTE:', '4Q6312', 'VALIDADE:', '02/2027', 'QUANT.:', 'DATA:', '30/10/2026', 'ASS:',
       'PORTARIA 344/98 E RDC', 'ANA SOUZA', 'CRF-SE 1234',
     ]) expect(texto, esperado).toContain(esperado);
   });
 
-  it('tem o tamanho de uma folha de cheque (175 × 80 mm, paisagem)', async () => {
+  it('sai em retrato (em pé): folha de cheque de 80 × 175 mm', async () => {
     const { doc } = await gerar({ data_venda: '2026-10-30', itens: [item(1)] });
-    expect(FOLHA).toEqual({ largura: 175, altura: 80 });
-    expect(doc.internal.pageSize.getWidth()).toBeCloseTo(175, 0);
-    expect(doc.internal.pageSize.getHeight()).toBeCloseTo(80, 0);
+    expect(FOLHA).toEqual({ largura: 80, altura: 175, orientacao: 'portrait' });
+    expect(doc.internal.pageSize.getWidth()).toBeCloseTo(80, 0);
+    expect(doc.internal.pageSize.getHeight()).toBeCloseTo(175, 0);
+  });
+
+  it('esconde as linhas de campos não preenchidos (paciente e medicamento)', async () => {
+    const { texto } = await gerar(
+      { data_venda: '2026-10-30', itens: [{ medicamento: 'DIPIRONA 500MG', rms: '', laboratorio: null, lote: '', validade: '', quantidade: null }] },
+      { nome: 'José Silva', telefone: '(75) 98888-0000' },
+    );
+    expect(texto).toContain('DIPIRONA 500MG');
+    expect(texto).toContain('CONTATO:');
+    for (const rotulo of ['RG:', 'CPF:', 'NASC.:', 'RMS:', 'LOTE:', 'VALIDADE:', 'LABORAT', 'QUANT.:']) expect(texto, rotulo).not.toContain(rotulo);
   });
 
   it('não desenha blocos em branco: com 1 ou 2 medicamentos só aparecem eles', async () => {
@@ -65,14 +75,14 @@ describe('montarPdfReceita', () => {
     }
   });
 
-  it('cabe até 3 medicamentos por folha; mais itens geram outras folhas, todas com cabeçalho', async () => {
-    const itens = Array.from({ length: 7 }, (_, i) => item(i + 1));
+  it('cabe até 4 medicamentos por folha; mais itens geram outras folhas, todas com cabeçalho', async () => {
+    const itens = Array.from({ length: 9 }, (_, i) => item(i + 1));
     const { doc, texto } = await gerar({ data_venda: '2026-10-30', itens });
     expect(doc.getNumberOfPages()).toBe(3);
-    expect(texto.match(/\(MEDICAMENTO:\)/g)).toHaveLength(7);
-    expect(texto.match(/\(NOME COMPLETO:\)/g)).toHaveLength(3);
+    expect(texto.match(/\(MEDICAMENTO:\)/g)).toHaveLength(9);
+    expect(texto.match(/\(NOME:\)/g)).toHaveLength(3);
     expect(texto).toContain('FOLHA 3/3');
-    expect(texto).toContain('MEDICAMENTO 7 10 MG');
+    expect(texto).toContain('MEDICAMENTO 9 10 MG');
   });
 
   it('o farmacêutico vem da receita (nada fixo no código); sem ele o campo fica em branco', async () => {
@@ -89,8 +99,12 @@ describe('montarPdfReceita', () => {
       medicamento: 'KOLLAGENASE COM CLORANFENICOL 0,6U/G POMADA DERMATOLOGICA',
       laboratorio: 'MULTILAB IND.E COM. DE PROD. FARMAC.LTDA',
     })] });
-    expect(texto).toContain('KOLLAGENASE COM CLORANFENICOL 0,6U/G POMADA DERMATOLOGICA');
-    expect(texto).toContain('MULTILAB IND.E COM. DE PROD. FARMAC.LTDA');
+    // nomes longos quebram em 2 linhas em vez de serem cortados
+    const semQuebra = texto.replace(/\) Tj[\s\S]*?\(/g, ' ');
+    expect(semQuebra).toContain('KOLLAGENASE COM CLORANFENICOL');
+    expect(semQuebra).toContain('POMADA DERMATOLOGICA');
+    expect(semQuebra).toContain('MULTILAB IND.E COM.');
+    expect(semQuebra).toContain('FARMAC.LTDA');
     expect(texto).not.toContain('…');
   });
 
@@ -100,10 +114,10 @@ describe('montarPdfReceita', () => {
     expect(texto).toContain('X 1 MG');
   });
 
-  it('divide os itens em folhas de 3', () => {
+  it('divide os itens em folhas de 4', () => {
     expect(dividirEmFolhas([]).length).toBe(1);
-    expect(dividirEmFolhas([1, 2, 3]).length).toBe(1);
-    expect(dividirEmFolhas([1, 2, 3, 4]).map(f => f.length)).toEqual([3, 1]);
+    expect(dividirEmFolhas([1, 2, 3, 4]).length).toBe(1);
+    expect(dividirEmFolhas([1, 2, 3, 4, 5]).map(f => f.length)).toEqual([4, 1]);
     expect(dividirEmFolhas(undefined)).toEqual([[]]);
   });
 

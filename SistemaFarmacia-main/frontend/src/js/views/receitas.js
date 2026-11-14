@@ -4,7 +4,7 @@
 //  - Medicamento novo no estoque? "+ Cadastrar novo medicamento" direto na busca,
 //    sem perder o que já foi digitado na receita.
 //  - RMS e laboratório vêm do catálogo, mas podem ser corrigidos conforme a caixa entregue.
-//  - Dose e posologia são opcionais (o nome comercial costuma já trazer a dosagem).
+//  - Sem campos de dose e posologia: a dosagem já vem no nome do medicamento.
 //  - Farmacêutico responsável: o usuário logado (se for farmacêutico) ou escolhido na lista.
 // ============================================================
 
@@ -23,8 +23,6 @@ const ICONE_LIXO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
 
 const normalizar = texto => String(texto ?? '').replace(/\s+/g, ' ').trim().toLowerCase();
 
-/** O nome comercial já traz a dosagem? ("ALPRAZOLAM 0,25 MG", "DIPIRONA 500MG/ML") */
-export const nomeTemDosagem = nome => /\d+([.,]\d+)?\s*(mg|mcg|µg|g|ml|ui|%)(?![a-z])/i.test(String(nome ?? ''));
 
 function medicamentosDaLinha(receita) {
   const itens = receita.itens?.length ? receita.itens : [{ medicamento: receita.medicamentos || '—', rms: '' }];
@@ -283,8 +281,6 @@ export async function renderReceitas(container) {
       el.querySelector('.med-rms').value = resolvido?.med.rms || '';
       el.querySelector('.med-laboratorio').value = resolvido?.med.laboratorio || '';
     }
-    const temDosagem = nomeTemDosagem(el.querySelector('.med-nome').value);
-    el.querySelector('.med-dose').placeholder = temDosagem ? 'Dose (já no nome)' : 'Dose (opcional)';
     el.querySelector('.med-nome').classList.remove('invalido'); // só volta a marcar quando sair do campo
   }
 
@@ -313,8 +309,6 @@ export async function renderReceitas(container) {
     el.innerHTML = `
       <div class="med-linha med-linha-1">
         <div><input type="text" class="form-input med-nome" autocomplete="off" placeholder="💊 Buscar medicamento no catálogo *" aria-label="Nome do medicamento"/></div>
-        <input type="text" class="form-input med-dose" maxlength="60" placeholder="Dose (opcional)" aria-label="Dose (opcional)"/>
-        <input type="text" class="form-input med-posologia" maxlength="200" placeholder="Posologia (opcional)" aria-label="Posologia (opcional)"/>
         <button type="button" class="btn-icon btn-icon-danger med-remover" title="Remover medicamento" aria-label="Remover medicamento">${ICONE_LIXO}</button>
       </div>
       <div class="med-linha med-linha-2">
@@ -334,8 +328,9 @@ export async function renderReceitas(container) {
       nome.value = item.medicamento;
       el.querySelector('.med-rms').value = item.rms || '';
       el.querySelector('.med-laboratorio').value = item.laboratorio || '';
-      el.querySelector('.med-dose').value = item.dose || '';
-      el.querySelector('.med-posologia').value = item.posologia || '';
+      // receitas antigas podem ter dose/posologia: ficam guardadas (não aparecem nem se perdem ao editar)
+      el.dataset.doseOriginal = item.dose || '';
+      el.dataset.posologiaOriginal = item.posologia || '';
       el.querySelector('.med-lote').value = item.lote || '';
       el.querySelector('.med-validade').value = item.validade || '';
       el.querySelector('.med-quant').value = item.quantidade ?? '';
@@ -435,8 +430,9 @@ export async function renderReceitas(container) {
         ...(resolvido.catalogo_id ? { catalogo_id: resolvido.catalogo_id } : { id: resolvido.id }),
         rms,
         laboratorio: valor('.med-laboratorio'),
-        dose: valor('.med-dose'),
-        posologia: valor('.med-posologia'),
+        // mesmo item já salvo: mantém dose/posologia antigas; item novo ou trocado: sem dose/posologia
+        dose: resolvido.id ? (el.dataset.doseOriginal || null) : null,
+        posologia: resolvido.id ? (el.dataset.posologiaOriginal || null) : null,
         lote: valor('.med-lote'),
         validade: valor('.med-validade'),
         quantidade: quant ? parseInt(quant, 10) : null,

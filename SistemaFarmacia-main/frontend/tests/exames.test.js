@@ -156,3 +156,46 @@ describe('digitação rápida', () => {
     expect(linhas()[0].querySelector('.carrinho-nome').textContent).toBe('Glicemia em jejum');
   });
 });
+
+describe('orçamento em PDF', () => {
+  it('o botão gera o orçamento com os exames, valores e cliente, sem salvar o atendimento', async () => {
+    vi.resetModules();
+    vi.stubEnv('VITE_API_URL', '');
+    const baixar = vi.fn(async () => 'orcamento.pdf');
+    vi.doMock('../src/js/orcamento.js', async () => ({ ...(await vi.importActual('../src/js/orcamento.js')), baixarPdfOrcamento: baixar }));
+    const { renderExames } = await import('../src/js/views/exames.js');
+    document.body.innerHTML = '<div id="c"></div>';
+    await renderExames(document.getElementById('c'));
+    campo('btnAbrirModalExame').click();
+
+    campo('btnOrcamentoExame').click();
+    expect(alerta).toHaveBeenCalledWith('Adicione pelo menos um exame para gerar o orçamento.');
+
+    await digitarEEscolher(campo('exame_paciente'), 'ana', 'Ana Souza');
+    await digitarEEscolher(busca(), 'glic', 'Glicemia');
+    await digitarEEscolher(busca(), 'hemo', 'Hemograma');
+    linhas()[1].querySelector('.exame-valor').value = '15,50';
+    campo('btnOrcamentoExame').click();
+    await vi.waitFor(() => expect(baixar).toHaveBeenCalledOnce());
+    const dados = baixar.mock.calls[0][0];
+    expect(dados.itens).toEqual([{ nome: 'Glicemia em jejum', valor: 10 }, { nome: 'Hemograma completo', valor: 15.5 }]);
+    expect(dados.cliente.nome).toBe('Ana Souza');
+    expect(ler('exames')).toEqual([]);   // orçamento não registra o atendimento
+    vi.doUnmock('../src/js/orcamento.js');
+  });
+
+  it('o PDF traz a farmácia, o cliente, cada exame com valor, o total e a validade', async () => {
+    const { montarPdfOrcamento, nomeArquivoOrcamento } = await import('../src/js/orcamento.js');
+    const { jsPDF } = await import('jspdf');
+    const t = montarPdfOrcamento(jsPDF, {
+      data: '2026-11-14', cliente: { nome: 'Ana Souza', telefone: '(79) 99999-0000' }, usuario: { nome: 'Leandro', registro_profissional: 'CRF-BA 9992' },
+      itens: [{ nome: 'Glicemia em jejum', valor: 10 }, { nome: 'TSH', valor: 25.5 }],
+    }).output();
+    for (const esperado of ['FARM', 'COUTO LTDA', '53.835.152/0001-70', 'OR', 'AMENTO DE EXAMES', 'Ana Souza', 'Glicemia em jejum', 'TSH', '25,50', '35,50', '21/11/2026', 'Leandro', 'CRF-BA 9992']) {
+      expect(t, esperado).toContain(esperado);
+    }
+    // sem cliente escolhido também funciona
+    expect(montarPdfOrcamento(jsPDF, { data: '2026-11-14', itens: [{ nome: 'TSH', valor: 25 }] }).output()).toContain('TSH');
+    expect(nomeArquivoOrcamento({ nome: 'José D\'Ávila' }, '2026-11-14')).toBe('orcamento-exames-jose-d-avila-2026-11-14.pdf');
+  });
+});

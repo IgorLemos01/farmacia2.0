@@ -116,12 +116,14 @@ describe('nova receita', () => {
     expect(campo('tituloModalReceita').textContent).toBe('Nova Receita');
     expect(itens()).toHaveLength(1);
     expect(cartao().hidden).toBe(true);
-    for (const seletor of ['.med-nome', '.med-dose', '.med-posologia', '.med-rms', '.med-lote', '.med-validade', '.med-laboratorio', '.med-quant']) {
+    // sem Dose e Posologia: a dosagem já vem no nome do medicamento
+    expect(itens()[0].querySelector('.med-dose')).toBeNull();
+    expect(itens()[0].querySelector('.med-posologia')).toBeNull();
+    for (const seletor of ['.med-nome', '.med-rms', '.med-lote', '.med-validade', '.med-laboratorio', '.med-quant']) {
       expect(itens()[0].querySelector(seletor), seletor).not.toBeNull();
     }
     expect(campo('rec_medico').required).toBe(false);          // médico é opcional
     expect(campo('btnSalvarImprimirReceita').textContent).toBe('Salvar e imprimir');
-    expect(itens()[0].querySelector('.med-dose').placeholder).toContain('opcional');
   });
 
   it('escolher o paciente mostra o cartão com os dados; o "x" desfaz', async () => {
@@ -221,8 +223,6 @@ describe('nova receita', () => {
     campo('rec_obs').value = 'Tomar com água';
 
     await escolherMedicamento(itens()[0], 'alprazol', 'ALPRAZOLAM');
-    itens()[0].querySelector('.med-dose').value = '0,25 mg';
-    itens()[0].querySelector('.med-posologia').value = '1 comprimido à noite';
     itens()[0].querySelector('.med-lote').value = '4Q6312';
     itens()[0].querySelector('.med-validade').value = '02/2027';
     itens()[0].querySelector('.med-quant').value = '2';
@@ -239,7 +239,7 @@ describe('nova receita', () => {
     expect(r.itens).toHaveLength(2);
     expect(r.itens[0]).toMatchObject({
       medicamento: 'ALPRAZOLAM 0,25 MG 30 CPRS', rms: '1023506630034', laboratorio: 'EMS INDUSTRIA FARMACEUTICA LTDA',
-      dose: '0,25 mg', posologia: '1 comprimido à noite', lote: '4Q6312', validade: '02/2027', quantidade: 2,
+      dose: null, posologia: null, lote: '4Q6312', validade: '02/2027', quantidade: 2,
     });
     expect(r.itens[1]).toMatchObject({ medicamento: 'AMOXICILINA 500 MG CX 21 COMP.', rms: '1256801470025', quantidade: 1 });
     expect(r.medicamentos).toBe('ALPRAZOLAM 0,25 MG 30 CPRS; AMOXICILINA 500 MG CX 21 COMP.');
@@ -465,15 +465,16 @@ describe('ajustes do atendimento de receitas', () => {
     await vi.waitFor(() => expect(alerta).toHaveBeenCalledWith('Medicamento 1: o RMS deve ter só números.'));
   });
 
-  it('dose e posologia ficam em branco quando o nome já traz a dosagem', async () => {
-    await montar();
-    campo('btnAbrirModalReceita').click();
-    await digitarEEscolher(campo('rec_paciente'), 'igor', 'Igor Lemos');
-    await escolherMedicamento(itens()[0], 'alprazol', 'ALPRAZOLAM');
-    expect(itens()[0].querySelector('.med-dose').placeholder).toBe('Dose (já no nome)');
+  it('editar receita antiga não apaga a dose e a posologia que já estavam salvas', async () => {
+    guardar('receitas', [{ id: 5, cliente_id: 1, cliente_nome: 'Igor Lemos', data_venda: '2026-10-20',
+      itens: [{ id: 50, medicamento: 'ALPRAZOLAM 0,25 MG 30 CPRS', rms: '1023506630034', laboratorio: 'EMS', dose: '0,25 mg', posologia: '1 à noite', lote: 'L1', quantidade: 1 }] }]);
+    const c = await montar();
+    c.querySelector('[data-acao="editar"]').click();
+    await vi.waitFor(() => expect(cartao().hidden).toBe(false));
+    itens()[0].querySelector('.med-lote').value = 'L2';
     enviar('formReceita');
-    await vi.waitFor(() => expect(ler('receitas')).toHaveLength(1));
-    expect(ler('receitas')[0].itens[0]).toMatchObject({ dose: null, posologia: null });
+    await vi.waitFor(() => expect(ler('receitas')[0].itens[0].lote).toBe('L2'));
+    expect(ler('receitas')[0].itens[0]).toMatchObject({ dose: '0,25 mg', posologia: '1 à noite' });
   });
 
   it('"+ Cadastrar novo medicamento" cria no catálogo e já escolhe, sem perder o que foi digitado', async () => {
@@ -576,13 +577,5 @@ describe('farmacêutico responsável (vem do cadastro de usuários)', () => {
     await salvarComPaciente();
     await vi.waitFor(() => expect(ler('receitas')).toHaveLength(1));
     expect(ler('receitas')[0].farmaceutico).toBeNull();
-  });
-});
-
-describe('nomeTemDosagem', () => {
-  it('reconhece a dosagem no nome comercial', async () => {
-    const { nomeTemDosagem } = await import('../src/js/views/receitas.js');
-    for (const nome of ['ALPRAZOLAM 0,25 MG', 'Dipirona 500mg/mL', 'AMOXICILINA 500MG', 'Insulina 100 UI', 'Minoxidil 5%']) expect(nomeTemDosagem(nome), nome).toBe(true);
-    for (const nome of ['SORO FISIOLÓGICO', 'POMADA X', '']) expect(nomeTemDosagem(nome), nome).toBe(false);
   });
 });

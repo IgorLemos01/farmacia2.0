@@ -6,7 +6,8 @@
 //  adiciona quantos precisar, ajusta o valor de cada um e o total é somado na hora.
 // ============================================================
 
-import { api } from '../api.js';
+import { api, sessao } from '../api.js';
+import { baixarPdfOrcamento } from '../orcamento.js';
 import { criarAutocomplete } from '../autocomplete.js';
 import { parseValorBR } from '../csv.js';
 import { formatarDataBR } from '../pdf.js';
@@ -134,6 +135,7 @@ export async function renderExames(container) {
 
           <div class="form-acoes">
             <button type="button" class="btn btn-secondary" id="btnCancelarExame">Cancelar</button>
+            <button type="button" class="btn btn-secondary" id="btnOrcamentoExame" title="Gera um PDF de orçamento com os exames e valores, sem salvar o atendimento">📄 Gerar orçamento (PDF)</button>
             <button type="submit" class="btn btn-primary" id="btnSalvarExame">Salvar Exames</button>
           </div>
         </form>
@@ -330,6 +332,27 @@ export async function renderExames(container) {
     } catch (err) {
       alert('Erro ao salvar: ' + err.message);
       btnSalvar.disabled = false;
+    }
+  };
+
+  // ── Orçamento em PDF (não salva o atendimento) ──────────
+  campo('btnOrcamentoExame').onclick = async () => {
+    const todas = linhas();
+    if (!todas.length) { alert('Adicione pelo menos um exame para gerar o orçamento.'); return; }
+    const itens = [];
+    for (const [i, tr] of todas.entries()) {
+      const valor = valorDaLinha(tr);
+      if (valor === null) { alert(`Exame ${i + 1} (${tr.dataset.nome}): informe um valor válido, ex.: 15,00.`); return; }
+      itens.push({ nome: tr.dataset.nome, valor });
+    }
+    const botao = campo('btnOrcamentoExame');
+    botao.disabled = true;
+    try {
+      await baixarPdfOrcamento({ itens, cliente: seletor.paciente, data: hojeISO(), usuario: sessao.usuario() });
+    } catch (err) {
+      alert('Não foi possível gerar o orçamento: ' + err.message);
+    } finally {
+      botao.disabled = false;
     }
   };
 

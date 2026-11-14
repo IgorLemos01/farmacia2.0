@@ -1,10 +1,12 @@
 // ============================================================
 //  PDF DA RECEITA — ficha de dispensação (padrão da Farmácia Couto)
 //
-//  Formato compacto de balcão: FOLHA DE CHEQUE (175 × 80 mm, paisagem).
-//  - Só os medicamentos lançados aparecem: nada de blocos em branco.
-//  - Até 3 medicamentos por folha; receitas maiores geram mais folhas,
+//  Formato compacto de balcão: folha de cheque em RETRATO (80 × 175 mm, em pé).
+//  - Só os medicamentos lançados aparecem: nada de blocos ou linhas em branco.
+//  - Até 4 medicamentos por folha; receitas maiores geram mais folhas,
 //    cada uma com o cabeçalho e os dados do paciente.
+//  - Nomes longos (medicamento, laboratório, farmacêutico) quebram em até 2 linhas
+//    em vez de serem cortados.
 //  - O farmacêutico responsável vem da receita (cadastro do usuário), nunca do código.
 //
 //  A biblioteca jsPDF só é baixada quando alguém pede o PDF/impressão.
@@ -14,20 +16,20 @@ export const EMPRESA = 'FARMÁCIA COUTO LTDA';
 export const AVISO_LEGAL =
   'CIENTE QUE DE ACORDO COM A PORTARIA 344/98 E RDC Nº 20/2011 NÃO É PERMITIDO A TROCA OU DEVOLUÇÃO DE MEDICAMENTO CONTROLADO/ ANTIBIÓTICO.';
 
-/** Tamanho da folha (mm): padrão de folha de cheque. */
-export const FOLHA = { largura: 175, altura: 80 };
-/** Medicamentos por folha (o que cabe na folha de cheque mantendo a leitura confortável). */
-export const MEDICAMENTOS_POR_FOLHA = 3;
+/** Tamanho da folha (mm): folha de cheque em pé (retrato). */
+export const FOLHA = { largura: 80, altura: 175, orientacao: 'portrait' };
+/** Medicamentos por folha (cabem com folga mesmo com nomes longos em 2 linhas). */
+export const MEDICAMENTOS_POR_FOLHA = 4;
 
 const MARGEM = 4;
 const LARGURA = FOLHA.largura - MARGEM * 2;
-const ALTURA_TITULO = 6;
+const ALTURA_TITULO = 7;
 const ALTURA_LINHA = 5;
-const ALTURA_ASSINATURA = 7;
-const FONTE_ROTULO = 6.5;
+const ALTURA_ASSINATURA = 9;
+const FONTE_ROTULO = 6.3;
 const FONTE_VALOR = 7;
-
-const doisDigitos = n => String(n).padStart(2, '0');
+const FONTE_MINIMA = 5.5;
+const ENTRELINHA = 2.7;
 
 /** '2026-10-30' → '30/10/2026' (ou '30/10/26' com `anoCurto`). */
 export function formatarDataBR(iso, { anoCurto = false } = {}) {
@@ -53,44 +55,69 @@ export function textoFarmaceutico(farmaceutico) {
   return texto;
 }
 
-/** Reduz a fonte até o texto caber na largura; se ainda não couber, corta com "…". */
-function ajustarTexto(doc, texto, larguraMax, tamanho = FONTE_VALOR, minimo = 5) {
-  let t = String(texto ?? '');
-  doc.setFontSize(tamanho);
-  while (doc.getTextWidth(t) > larguraMax && doc.getFontSize() > minimo) {
-    doc.setFontSize(doc.getFontSize() - 0.25);
+/**
+ * Cabe o texto na largura: tenta em 1 linha (reduzindo um pouco a fonte); se não der,
+ * quebra em até `maxLinhas`; se ainda sobrar, reduz a fonte até o mínimo e, por fim, corta com "…".
+ * Devolve { linhas, tamanho }.
+ */
+function encaixarTexto(doc, texto, larguraMax, maxLinhas = 1) {
+  const t = String(texto ?? '');
+  for (let tamanho = FONTE_VALOR; tamanho >= FONTE_VALOR - 0.5; tamanho -= 0.25) {
+    doc.setFontSize(tamanho);
+    if (doc.getTextWidth(t) <= larguraMax) return { linhas: [t], tamanho };
   }
-  if (doc.getTextWidth(t) > larguraMax) {
-    while (t.length > 1 && doc.getTextWidth(t + '…') > larguraMax) t = t.slice(0, -1);
-    t += '…';
+  for (let tamanho = FONTE_VALOR; tamanho >= FONTE_MINIMA; tamanho -= 0.25) {
+    doc.setFontSize(tamanho);
+    const linhas = doc.splitTextToSize(t, larguraMax);
+    if (linhas.length <= maxLinhas) return { linhas, tamanho };
   }
-  return t;
+  doc.setFontSize(FONTE_MINIMA);
+  const linhas = doc.splitTextToSize(t, larguraMax).slice(0, maxLinhas);
+  let ultima = linhas[linhas.length - 1];
+  while (ultima.length > 1 && doc.getTextWidth(ultima + '…') > larguraMax) ultima = ultima.slice(0, -1);
+  linhas[linhas.length - 1] = ultima + '…';
+  return { linhas, tamanho: FONTE_MINIMA };
 }
 
 /**
  * Desenha uma linha da tabela dividida em células. Cada célula tem um rótulo em negrito
- * seguido do valor. `largura` é a fração da linha (as frações somam 1).
+ * seguido do valor. `largura` é a fração da linha (as frações somam 1). Célula com
+ * `quebrar: true` pode ocupar 2 linhas de texto; a altura da linha acompanha.
  */
-function desenharLinha(doc, y, altura, celulas) {
+function desenharLinha(doc, y, celulas, alturaMinima = ALTURA_LINHA) {
+  // 1º passo: mede cada célula
   let x = MARGEM;
-  for (const { largura, rotulo, valor = '', negritoValor = false } of celulas) {
-    const w = LARGURA * largura;
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.2);
-    doc.rect(x, y, w, altura);
-
-    const yTexto = y + altura / 2 + 0.9;
+  const medidas = celulas.map(c => {
+    const w = LARGURA * c.largura;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(FONTE_ROTULO);
-    doc.text(rotulo, x + 1.2, yTexto);
-    const larguraRotulo = doc.getTextWidth(rotulo) + 1; // rótulo + respiro antes do valor
-
-    if (valor) {
-      doc.setFont('helvetica', negritoValor ? 'bold' : 'normal');
-      const texto = ajustarTexto(doc, valor, w - larguraRotulo - 2.4);
-      doc.text(texto, x + 1.2 + larguraRotulo, yTexto);
+    const larguraRotulo = doc.getTextWidth(c.rotulo) + 1;
+    let texto = null;
+    if (c.valor) {
+      doc.setFont('helvetica', c.negritoValor ? 'bold' : 'normal');
+      texto = encaixarTexto(doc, c.valor, w - larguraRotulo - 2.2, c.quebrar ? 2 : 1);
     }
+    const medida = { ...c, x, w, larguraRotulo, texto };
     x += w;
+    return medida;
+  });
+  const linhasMax = Math.max(1, ...medidas.map(m => (m.texto ? m.texto.linhas.length : 1)));
+  const altura = Math.max(alturaMinima, ALTURA_LINHA + (linhasMax - 1) * ENTRELINHA);
+
+  // 2º passo: desenha
+  for (const m of medidas) {
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.2);
+    doc.rect(m.x, y, m.w, altura);
+    const yTexto = y + 3.5;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(FONTE_ROTULO);
+    doc.text(m.rotulo, m.x + 1.1, yTexto);
+    if (m.texto) {
+      doc.setFont('helvetica', m.negritoValor ? 'bold' : 'normal');
+      doc.setFontSize(m.texto.tamanho);
+      m.texto.linhas.forEach((linha, i) => doc.text(linha, m.x + 1.1 + m.larguraRotulo, yTexto + i * ENTRELINHA));
+    }
   }
   return y + altura;
 }
@@ -105,14 +132,15 @@ export function dividirEmFolhas(itens) {
 }
 
 /**
- * Monta o PDF da receita no padrão da ficha da farmácia, em folha de cheque.
+ * Monta o PDF da receita no padrão da ficha da farmácia, em folha de cheque em pé.
  *
  * @param {Function} JsPDF  Construtor do jsPDF (injetado para facilitar os testes).
  * @param {object} receita  Receita com `itens`, `data_venda`, `farmaceutico` etc.
  * @param {object} paciente Dados do cliente: nome, rg, cpf, data_nascimento, telefone.
  */
 export function montarPdfReceita(JsPDF, receita, paciente = {}) {
-  const doc = new JsPDF({ unit: 'mm', format: [FOLHA.largura, FOLHA.altura], orientation: 'landscape' });
+  const formato = [FOLHA.largura, FOLHA.altura];
+  const doc = new JsPDF({ unit: 'mm', format: formato, orientation: FOLHA.orientacao });
   paciente = paciente || {};
   const nome = paciente.nome || receita.cliente_nome || '';
   doc.setProperties({ title: `Receita — ${nome}`, subject: EMPRESA, creator: EMPRESA });
@@ -121,7 +149,7 @@ export function montarPdfReceita(JsPDF, receita, paciente = {}) {
   const farmaceutico = textoFarmaceutico(receita.farmaceutico);
 
   folhas.forEach((itens, indice) => {
-    if (indice > 0) doc.addPage([FOLHA.largura, FOLHA.altura], 'landscape');
+    if (indice > 0) doc.addPage(formato, FOLHA.orientacao);
     let y = MARGEM;
 
     // Título
@@ -130,51 +158,67 @@ export function montarPdfReceita(JsPDF, receita, paciente = {}) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9.5);
     doc.text(EMPRESA, MARGEM + LARGURA / 2, y + ALTURA_TITULO / 2 + 1.2, { align: 'center' });
+    y += ALTURA_TITULO;
     if (folhas.length > 1) {
       doc.setFontSize(FONTE_ROTULO);
-      doc.text(`FOLHA ${indice + 1}/${folhas.length}`, MARGEM + LARGURA - 1.5, y + ALTURA_TITULO / 2 + 0.9, { align: 'right' });
+      doc.text(`FOLHA ${indice + 1}/${folhas.length}`, MARGEM + LARGURA, y + 2.6, { align: 'right' });
+      y += 3.6;
     }
-    y += ALTURA_TITULO;
 
-    // Paciente
-    y = desenharLinha(doc, y, ALTURA_LINHA, [
-      { largura: 0.64, rotulo: 'NOME COMPLETO:', valor: nome },
-      { largura: 0.36, rotulo: 'CONTATO:', valor: paciente.telefone || '' },
-    ]);
-    y = desenharLinha(doc, y, ALTURA_LINHA, [
-      { largura: 0.3, rotulo: 'RG:', valor: paciente.rg || '' },
-      { largura: 0.36, rotulo: 'CPF:', valor: paciente.cpf || '' },
-      { largura: 0.34, rotulo: 'DATA NASC.:', valor: formatarDataBR(paciente.data_nascimento) },
-    ]);
+    // Paciente (só os campos preenchidos)
+    y = desenharLinha(doc, y, [{ largura: 1, rotulo: 'NOME:', valor: nome, quebrar: true }]);
+    const contato = paciente.telefone || '';
+    const nascimento = formatarDataBR(paciente.data_nascimento);
+    const linhaContato = [
+      contato && { rotulo: 'CONTATO:', valor: contato },
+      nascimento && { rotulo: 'NASC.:', valor: nascimento },
+    ].filter(Boolean);
+    const linhaDocs = [
+      paciente.rg && { rotulo: 'RG:', valor: paciente.rg },
+      paciente.cpf && { rotulo: 'CPF:', valor: paciente.cpf },
+    ].filter(Boolean);
+    for (const linha of [linhaContato, linhaDocs]) {
+      if (linha.length === 2) {
+        linha[0].largura = 0.52;
+        linha[1].largura = 0.48;
+        y = desenharLinha(doc, y, linha);
+      } else if (linha.length === 1) {
+        y = desenharLinha(doc, y, [{ ...linha[0], largura: 1 }]);
+      }
+    }
 
-    // Medicamentos: só os lançados (sem blocos vazios)
+    // Medicamentos: só os lançados, e em cada um só os campos preenchidos
     for (const item of itens) {
-      y = desenharLinha(doc, y, ALTURA_LINHA, [
-        { largura: 0.72, rotulo: 'MEDICAMENTO:', valor: item.medicamento || '', negritoValor: true },
-        { largura: 0.28, rotulo: 'RMS:', valor: item.rms || '' },
-      ]);
-      y = desenharLinha(doc, y, ALTURA_LINHA, [
-        { largura: 0.17, rotulo: 'LOTE:', valor: item.lote || '' },
-        { largura: 0.19, rotulo: 'VALIDADE:', valor: item.validade || '' },
-        { largura: 0.46, rotulo: 'LABORATÓRIO:', valor: item.laboratorio || '' },
-        { largura: 0.18, rotulo: 'QUANT.:', valor: item.quantidade != null ? String(item.quantidade) : '' },
-      ]);
+      y += 1.2; // respiro entre o paciente e cada medicamento
+      y = desenharLinha(doc, y, [{ largura: 1, rotulo: 'MEDICAMENTO:', valor: item.medicamento || '', negritoValor: true, quebrar: true }]);
+      const rmsQuant = [
+        item.rms && { rotulo: 'RMS:', valor: item.rms },
+        item.quantidade != null && item.quantidade !== '' && { rotulo: 'QUANT.:', valor: String(item.quantidade) },
+      ].filter(Boolean);
+      const loteValidade = [
+        item.lote && { rotulo: 'LOTE:', valor: item.lote },
+        item.validade && { rotulo: 'VALIDADE:', valor: item.validade },
+      ].filter(Boolean);
+      if (rmsQuant.length === 2) y = desenharLinha(doc, y, [{ ...rmsQuant[0], largura: 0.66 }, { ...rmsQuant[1], largura: 0.34 }]);
+      else if (rmsQuant.length === 1) y = desenharLinha(doc, y, [{ ...rmsQuant[0], largura: 1 }]);
+      if (loteValidade.length === 2) y = desenharLinha(doc, y, [{ ...loteValidade[0], largura: 0.46 }, { ...loteValidade[1], largura: 0.54 }]);
+      else if (loteValidade.length === 1) y = desenharLinha(doc, y, [{ ...loteValidade[0], largura: 1 }]);
+      if (item.laboratorio) y = desenharLinha(doc, y, [{ largura: 1, rotulo: 'LABORATÓRIO:', valor: item.laboratorio, quebrar: true }]);
     }
 
-    // Farmacêutico, data e assinatura
-    y = desenharLinha(doc, y, ALTURA_LINHA, [
-      { largura: 0.8, rotulo: 'FARMACÊUTICO:', valor: farmaceutico, negritoValor: true },
-      { largura: 0.2, rotulo: 'DATA:', valor: formatarDataBR(receita.data_venda, { anoCurto: true }) },
-    ]);
-    y = desenharLinha(doc, y, ALTURA_ASSINATURA, [{ largura: 1, rotulo: 'ASS:' }]);
+    // Farmacêutico, data e assinatura (farmacêutico em branco = assinar à mão)
+    y += 1.2;
+    y = desenharLinha(doc, y, [{ largura: 1, rotulo: 'FARMACÊUTICO:', valor: farmaceutico, negritoValor: true, quebrar: true }]);
+    y = desenharLinha(doc, y, [{ largura: 1, rotulo: 'DATA:', valor: formatarDataBR(receita.data_venda) }]);
+    y = desenharLinha(doc, y, [{ largura: 1, rotulo: 'ASS:' }], ALTURA_ASSINATURA);
 
     // Aviso legal
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(5.6);
-    const linhasAviso = doc.splitTextToSize(AVISO_LEGAL, LARGURA - 2.4);
+    const linhasAviso = doc.splitTextToSize(AVISO_LEGAL, LARGURA - 2.2);
     const alturaAviso = linhasAviso.length * 2.4 + 1.6;
     doc.rect(MARGEM, y, LARGURA, alturaAviso);
-    doc.text(linhasAviso, MARGEM + 1.2, y + 2.6);
+    doc.text(linhasAviso, MARGEM + 1.1, y + 2.6);
   });
 
   return doc;

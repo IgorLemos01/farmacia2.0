@@ -223,6 +223,9 @@ Como funciona:
 - `PUT /api/exames/{id}` com `itens` substitui a lista: `{id, valor?}` mantém um item já salvo (com o nome da época),
   `{catalogo_id, valor?}` inclui um novo. Sem `itens`, altera só data, pagamento e observações.
 - Na tela, a busca do catálogo adiciona exames num "carrinho" (Enter ou clique), com valor editável e total na hora.
+- **Orçamento em PDF** (`src/js/orcamento.js`): botão "Gerar orçamento (PDF)" no formulário de exames. A4 em pé com
+  dados da farmácia, cliente (se escolhido), exames e valores, total, validade (`VALIDADE_DIAS` = 7) e quem emitiu.
+  Não salva o atendimento.
 - "Remover" do catálogo apenas desativa (`ativo=false`): some da lista de escolha, o histórico fica.
 - Nomes são únicos sem diferenciar maiúsculas; nomes de 1 letra são válidos (ex.: `K`).
 - Na tela: **Configurações → Catálogo de Exames** (só admin). A importação lê um CSV no navegador
@@ -254,11 +257,13 @@ responde **409** com o existente em `medicamento` (a tela usa esse). Tela: **Con
   laboratório** também, a não ser que venham no item (correção só nesta receita, ex.: a caixa entregue é da Simed e
   não da Prati; o catálogo não muda). No `PUT`, `itens` substitui a lista; `{id}` de um item existente mantém a
   cópia original, `{catalogo_id}` troca por um do catálogo.
-- **Dose e posologia são opcionais** (o nome comercial costuma trazer a dosagem: "ALPRAZOLAM 0,25 MG").
+- **A tela não tem Dose nem Posologia** (a dosagem vem no nome: "ALPRAZOLAM 0,25 MG"). A API ainda aceita os dois
+  campos; ao editar uma receita antiga, os valores já salvos são mantidos.
 - Medicamento é sempre escolhido do catálogo; se não existe, "+ Cadastrar novo medicamento" na busca.
-- **Impressão/PDF** (`src/js/pdf.js`): folha de **cheque, 175 × 80 mm** (paisagem), gerada no navegador com jsPDF
-  (carregado sob demanda). Só os medicamentos lançados aparecem (sem blocos em branco), **até 3 por folha**; com
-  mais, gera outras folhas, cada uma com cabeçalho e paciente. "Imprimir" abre a impressão direto (use escala 100%);
+- **Impressão/PDF** (`src/js/pdf.js`): folha de cheque em **retrato, 80 × 175 mm** (em pé; `FOLHA`), gerada no
+  navegador com jsPDF (carregado sob demanda). Só os medicamentos lançados aparecem e, em cada bloco, só as linhas
+  preenchidas (RMS, lote, validade, laboratório, RG, CPF...). Nomes longos quebram em 2 linhas. **Até 4 por folha**;
+  com mais, gera outras folhas, cada uma com cabeçalho e paciente. "Imprimir" abre a impressão direto (use escala 100%);
   "PDF" baixa o arquivo. Textos fixos: `EMPRESA` e `AVISO_LEGAL`; o farmacêutico vem da receita. Dose, posologia,
   médico e observações ficam salvos no sistema mas **não saem na ficha**.
 - **Mudança de banco**: `receitas` perdeu a coluna `medicamentos` e ganhou `observacoes`
