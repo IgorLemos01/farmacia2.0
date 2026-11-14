@@ -19,6 +19,11 @@ export function aplicarPermissoesNaTela(usuario, doc = document) {
 
   const veClientes = podeAcessar(usuario, 'clientes');
   ocultar(doc.querySelector('.search-pill-container'), !veClientes);
-  ocultar(doc.getElementById('btnNovoAtendimento'), !veClientes);
+  // "Novo Atendimento": cada opção só aparece para quem pode usar aquela tela
+  const opcoes = [...doc.querySelectorAll('[data-novo]')];
+  opcoes.forEach(op => ocultar(op, !podeAcessar(usuario, op.dataset.novo)));
+  const temOpcao = opcoes.some(op => podeAcessar(usuario, op.dataset.novo));
+  const botaoNovo = doc.getElementById('btnNovoAtendimento');
+  ocultar(botaoNovo?.closest('.menu-novo') || botaoNovo, !temOpcao);
   ocultar(doc.getElementById('btnExportarRelatorio'), !podeAcessar(usuario, 'dashboard'));
 }

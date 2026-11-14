@@ -34,8 +34,6 @@ nav{
 .nlogo{display:flex;align-items:center;gap:12px;text-decoration:none}
 .nlogo-img{height:44px;width:auto;object-fit:contain;display:block}
 .nico{width:40px;height:40px;background:linear-gradient(135deg,var(--red),var(--red-d));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:19px;box-shadow:0 4px 12px rgba(200,16,46,.26)}
-.ntxt{font-family:'Playfair Display',serif;font-size:1.25rem;font-weight:700;color:var(--blue);line-height:1}
-.nsub{font-size:.6rem;color:var(--gr);letter-spacing:.09em;text-transform:uppercase}
 .nlinks{display:flex;gap:2rem;list-style:none}
 .nlinks a{text-decoration:none;color:var(--gd);font-size:.9rem;font-weight:500;transition:color .2s;position:relative}
 .nlinks a::after{content:'';position:absolute;bottom:-4px;left:0;right:0;height:2px;background:var(--red);transform:scaleX(0);transition:transform .2s;border-radius:2px}
@@ -113,7 +111,6 @@ nav{
 .hctxt{color:rgba(255,255,255,.68);font-size:.87rem;line-height:1.65}
 .hcpil{display:inline-block;background:rgba(37,211,102,.22);color:#A7F3D0;font-size:.72rem;font-weight:700;padding:.22rem .7rem;border-radius:100px;margin-top:.9rem}
 .chip{position:absolute;background:#fff;border-radius:10px;padding:.7rem .95rem;box-shadow:var(--sl);display:flex;align-items:center;gap:9px;font-size:.8rem;font-weight:700;color:var(--tx)}
-.c1{top:-18px;right:-18px;animation:flt2 5s ease-in-out infinite}
 .c2{bottom:-8px;left:-18px;animation:flt2 5s ease-in-out -1.2s infinite}
 @keyframes flt2{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-7px) rotate(2deg)}}
 .cdot{width:8px;height:8px;border-radius:50%;background:#4ADE80;flex-shrink:0}
@@ -125,11 +122,6 @@ nav{
 @media(max-width:860px){.sg{grid-template-columns:1fr;gap:2.5rem}}
 .svis{position:relative;overflow:visible}
 .sbox{background:linear-gradient(135deg,var(--blue),var(--blue-m));border-radius:var(--rl);aspect-ratio:4/3;min-height:260px;display:flex;align-items:center;justify-content:center;position:relative;box-shadow:var(--sl);overflow:hidden}
-.sbg-ico{font-size:8rem;opacity:.08;position:absolute}
-.sov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;text-align:center;padding:2rem}
-.sov-ico{font-size:4.5rem;margin-bottom:.9rem}
-.sov h3{font-family:'Playfair Display',serif;font-size:1.55rem;font-weight:700;margin-bottom:.4rem}
-.sov p{font-size:.88rem;opacity:.75}
 .sbadge{position:absolute;bottom:-18px;right:-18px;background:var(--red);color:#fff;border-radius:14px;padding:1rem 1.25rem;box-shadow:0 12px 32px rgba(200,16,46,.36);text-align:center;z-index:2}
 .sbadge strong{font-family:'Playfair Display',serif;font-size:1.9rem;display:block}
 .sbadge span{font-size:.7rem;font-weight:600;opacity:.82}

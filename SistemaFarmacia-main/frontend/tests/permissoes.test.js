@@ -40,7 +40,10 @@ describe('aplicarPermissoesNaTela', () => {
       <div id="tituloMenu"></div>
       <a class="nav-item" data-route="dashboard"></a><a class="nav-item" data-route="clientes"></a>
       <a class="nav-item" data-route="exames"></a><a class="nav-item" data-route="configuracoes"></a>
-      <div id="tituloGeral"></div><div class="search-pill-container"></div><button id="btnNovoAtendimento"></button>`;
+      <div id="tituloGeral"></div><div class="search-pill-container"></div>
+      <div class="menu-novo"><button id="btnNovoAtendimento"></button>
+        <button data-novo="manipulacoes"></button><button data-novo="exames"></button>
+        <button data-novo="receitas"></button><button data-novo="clientes"></button></div>`;
   };
   const visivel = sel => document.querySelector(sel).style.display !== 'none';
 
@@ -52,7 +55,8 @@ describe('aplicarPermissoesNaTela', () => {
     expect(visivel('[data-route="configuracoes"]')).toBe(false);
     expect(visivel('#tituloGeral')).toBe(false);
     expect(visivel('.search-pill-container')).toBe(false); // sem Clientes, sem busca de pacientes
-    expect(visivel('#btnNovoAtendimento')).toBe(false);
+    // "Novo Atendimento" continua: o menu dele oferece "Registrar exames"
+    expect(visivel('#btnNovoAtendimento')).toBe(true);
   });
 
   it('administrador vê tudo', () => {

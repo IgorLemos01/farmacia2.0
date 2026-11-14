@@ -39,3 +39,13 @@ describe('filtrarPorPeriodo', () => {
   it('só "até"', () => expect(ids('', '2026-10-15')).toEqual([1, 2]));
   it('ignora registros sem data quando há filtro', () => expect(ids('2026-01-01', '2026-12-31')).toEqual([1, 2, 3]));
 });
+
+describe('iniciais (avatar do usuário)', () => {
+  it('usa a primeira letra do primeiro e do último nome', async () => {
+    const { iniciais } = await import('../src/js/utils.js');
+    expect(iniciais('Ana Maria Souza')).toBe('AS');
+    expect(iniciais('  leandro ')).toBe('L');
+    expect(iniciais('')).toBe('');
+    expect(iniciais(null)).toBe('');
+  });
+});

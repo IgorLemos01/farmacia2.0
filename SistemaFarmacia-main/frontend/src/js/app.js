@@ -4,7 +4,7 @@
 
 import { state } from './state.js';
 import { api, sessao, MODO_DEMO } from './api.js';
-import { escapeHtml } from './utils.js';
+import { escapeHtml, iniciais } from './utils.js';
 import { aplicarPermissoesNaTela } from './menu.js';
 import { PERFIS, podeAcessar, primeiraRotaPermitida } from './permissoes.js';
 import { renderDashboard } from './views/dashboard.js';
@@ -17,7 +17,7 @@ import { renderConfiguracoes } from './views/configuracoes.js';
 const ROUTE_CONFIG = {
   dashboard: {
     title: 'Dashboard',
-    subtitle: 'Acompanhe métricas, atendimentos e desempenho em tempo real.',
+    subtitle: 'Visão geral e relatórios por serviço.',
     render: renderDashboard,
   },
   clientes: {
@@ -47,8 +47,17 @@ const ROUTE_CONFIG = {
   },
 };
 
+/** Botão que abre o formulário de "novo" em cada tela (usado pelo menu Novo Atendimento). */
+const BOTAO_NOVO = {
+  manipulacoes: 'btnAbrirModalManip',
+  exames: 'btnAbrirModalExame',
+  receitas: 'btnAbrirModalReceita',
+  clientes: 'btnAbrirModalCliente',
+};
+
 class AppRouter {
   constructor() {
+    this.abrirAoCarregar = null; // tela cujo formulário de "novo" abre assim que ela carregar
     this.mainContent = document.getElementById('mainContentArea');
     this.titleEl = document.getElementById('pageTitleText');
     this.subtitleEl = document.getElementById('pageSubtitleText');
@@ -83,7 +92,11 @@ class AppRouter {
 
     // Renderiza a view ativa; falhas da API viram uma mensagem na tela
     if (this.mainContent) {
-      Promise.resolve(config.render(this.mainContent, state.searchTerm)).catch(err => {
+      Promise.resolve(config.render(this.mainContent, state.searchTerm)).then(() => {
+        const pendente = this.abrirAoCarregar;
+        this.abrirAoCarregar = null;
+        if (pendente === route) document.getElementById(BOTAO_NOVO[route])?.click();
+      }).catch(err => {
         if (err.status === 401) return; // a tela de login já foi exibida
         this.mainContent.innerHTML = `
           <div class="card" style="text-align: center; padding: 40px; color: var(--text-muted);">
@@ -94,7 +107,32 @@ class AppRouter {
     }
   }
 
+  /** Vai para a tela e já abre o formulário de cadastro dela. */
+  novoAtendimento(route) {
+    if (!BOTAO_NOVO[route] || !podeAcessar(state.currentUser, route)) return;
+    this.abrirAoCarregar = route;
+    state.navigate(route);
+  }
+
   initEventListeners() {
+    // Menu "Novo Atendimento"
+    const botaoNovo = document.getElementById('btnNovoAtendimento');
+    const menuNovo = document.getElementById('menuNovoAtendimento');
+    if (botaoNovo && menuNovo) {
+      const fecharMenu = () => { menuNovo.hidden = true; botaoNovo.setAttribute('aria-expanded', 'false'); };
+      botaoNovo.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menuNovo.hidden = !menuNovo.hidden;
+        botaoNovo.setAttribute('aria-expanded', String(!menuNovo.hidden));
+        if (!menuNovo.hidden) menuNovo.querySelector('[data-novo]:not([style*="none"])')?.focus();
+      });
+      menuNovo.querySelectorAll('[data-novo]').forEach(op => {
+        op.addEventListener('click', () => { fecharMenu(); this.novoAtendimento(op.dataset.novo); });
+      });
+      document.addEventListener('click', (e) => { if (!menuNovo.hidden && !menuNovo.contains(e.target)) fecharMenu(); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !menuNovo.hidden) { fecharMenu(); botaoNovo.focus(); } });
+    }
+
     // Cliques na navegação
     document.querySelectorAll('[data-route]').forEach(el => {
       el.addEventListener('click', (e) => {
@@ -122,9 +160,9 @@ class AppRouter {
       });
     }
 
-    // Atalho de teclado (Ctrl + K ou Cmd + F) para buscar
+    // Atalho de teclado (Ctrl + K) para buscar cliente; o Ctrl + F do navegador continua normal
     window.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'f')) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         if (this.searchInput) {
           this.searchInput.focus();
@@ -145,7 +183,10 @@ function irParaLogin({ expirou = false } = {}) {
 function exibirUsuario(usuario) {
   state.currentUser = usuario;
   document.getElementById('userNameText').textContent = usuario?.nome || '';
-  document.getElementById('userRoleText').textContent = PERFIS[usuario?.perfil] || '';
+  // cargo cadastrado (ex.: "Farmacêutica Responsável"); sem cargo, o perfil
+  document.getElementById('userRoleText').textContent = usuario?.cargo || PERFIS[usuario?.perfil] || '';
+  const avatar = document.getElementById('userAvatar');
+  if (avatar) avatar.textContent = iniciais(usuario?.nome);
 }
 
 function revelarTela() {

@@ -28,6 +28,10 @@ SistemaFarmacia/
 - `index.html` → landing page institucional (`src/css/landing.css`, `src/js/landing.js`)
 - `login.html` → entrada do sistema (e-mail e senha), aberta pelo botão "Área Interna" da landing
 - `sistema.html` → sistema de gestão; sem login volta para `login.html`
+- `privacidade.html` → Política de Privacidade (LGPD), ligada no rodapé da landing. Ao mudar a forma de tratar
+  dados de clientes, atualize o texto e a data no topo da página.
+- Botão **Novo Atendimento** (topo do sistema): menu com Nova manipulação, Registrar exames, Nova receita e
+  Novo cliente; cada opção só aparece para quem tem o módulo e já abre o formulário da tela.
 
 ```bash
 # Instalar dependências
@@ -58,7 +62,7 @@ npm run build
 ### Publicação (Hostinger)
 
 O frontend é estático: o build gera `frontend/dist/` com `index.html` (landing),
-`login.html`, `sistema.html`, a pasta `assets/` e o `.htaccess` (cabeçalhos de segurança e cache,
+`login.html`, `sistema.html`, `privacidade.html`, a pasta `assets/` e o `.htaccess` (cabeçalhos de segurança e cache,
 vindo de `frontend/public/.htaccess`).
 
 1. `npm run build` (na raiz do projeto)

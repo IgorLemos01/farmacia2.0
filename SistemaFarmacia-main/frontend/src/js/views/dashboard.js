@@ -175,13 +175,9 @@ export async function renderDashboard(container, searchTerm, filtros) {
 
   container.innerHTML = `
     <div class="dash-topo">
-      <div>
-        <h1 class="dash-titulo">Dashboard</h1>
-        <p class="dash-subtitulo">Visão geral e relatórios por serviço</p>
-      </div>
+      <p class="dash-saudacao">${getGreeting()}, <span>${esc((state.currentUser?.nome || 'Administrador').split(' ')[0])}!</span></p>
       <div id="dashClock" class="dash-relogio"></div>
     </div>
-    <p class="dash-saudacao">${getGreeting()}, <span>${esc((state.currentUser?.nome || 'Administrador').split(' ')[0])}!</span></p>
     <div class="tabs" role="tablist">
       ${ABAS.map(a => `<button type="button" class="tab ${a.chave === estado.aba ? 'active' : ''}" role="tab" data-aba="${a.chave}" aria-selected="${a.chave === estado.aba}">${esc(a.rotulo)}</button>`).join('')}
     </div>

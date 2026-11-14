@@ -78,3 +78,11 @@ export function semAcento(texto) {
 export function formatarMoeda(valor) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(valor) || 0);
 }
+
+/** "Ana Maria Souza" → "AS" (iniciais do primeiro e do último nome, para o avatar). */
+export function iniciais(nome) {
+  const partes = String(nome || '').trim().split(/\s+/).filter(Boolean);
+  if (!partes.length) return '';
+  const ultima = partes.length > 1 ? partes[partes.length - 1][0] : '';
+  return (partes[0][0] + ultima).toUpperCase();
+}

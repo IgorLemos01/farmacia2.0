@@ -50,15 +50,6 @@
   font-size: 0.78rem;
 }
 
-.btn-danger {
-  background-color: #fee2e2;
-  color: #991b1b;
-}
-
-.btn-danger:hover {
-  background-color: #fecaca;
-}
-
 /* --- Cartões Base --- */
 .card {
   background: var(--bg-card);
@@ -150,32 +141,6 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-}
-
-.cell-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-icon-action {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  border: 1px solid var(--border-light);
-  background: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--text-muted);
-  transition: all var(--transition-fast);
-}
-
-.btn-icon-action:hover {
-  color: var(--color-primary-dark);
-  border-color: var(--color-primary-dark);
-  background: #edf2fc;
 }
 
 /* --- Modais --- */
@@ -342,31 +307,6 @@
 
 .drawer-overlay.active .drawer-panel {
   transform: translateX(0);
-}
-
-.drawer-tabs {
-  display: flex;
-  gap: 8px;
-  border-bottom: 1px solid var(--border-light);
-  margin: 20px 0;
-  padding-bottom: 8px;
-}
-
-.drawer-tab-btn {
-  background: none;
-  border: none;
-  padding: 6px 14px;
-  border-radius: var(--radius-pill);
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.drawer-tab-btn.active {
-  background: var(--color-primary-light);
-  color: var(--color-primary-dark);
 }
 
 /* --- Ações de linha (editar / excluir) --- */
@@ -707,11 +647,9 @@
 .lista-badges { display: flex; flex-wrap: wrap; gap: 4px; }
 
 /* --- Dashboard / relatórios --- */
-.dash-topo { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
-.dash-titulo { font-size: 1.7rem; font-weight: 800; color: var(--text-title); letter-spacing: -0.5px; line-height: 1.2; }
-.dash-subtitulo { font-size: 0.85rem; color: var(--text-muted); margin-top: 2px; }
+.dash-topo { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
 .dash-relogio { font-size: 0.85rem; color: var(--text-muted); font-weight: 500; text-align: right; }
-.dash-saudacao { font-size: 0.95rem; font-weight: 600; color: var(--text-body); margin-bottom: 12px; }
+.dash-saudacao { font-size: 0.95rem; font-weight: 600; color: var(--text-body); }
 .dash-saudacao span { color: var(--color-primary-dark); }
 .dash-duas-colunas { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 .carregando-bloco { text-align: center; padding: 40px; color: var(--text-muted); }

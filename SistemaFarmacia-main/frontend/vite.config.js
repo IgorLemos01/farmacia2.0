@@ -12,6 +12,7 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html'),       // Landing page
         login: resolve(__dirname, 'login.html'),      // Entrada: fica entre a landing e o sistema
         sistema: resolve(__dirname, 'sistema.html'),  // Área interna (sistema de gestão)
+        privacidade: resolve(__dirname, 'privacidade.html'), // Política de Privacidade (LGPD)
       }
     }
   },

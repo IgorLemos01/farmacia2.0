@@ -15,7 +15,6 @@
   <link rel="stylesheet" href="/src/css/variables.css" />
   <link rel="stylesheet" href="/src/css/layout.css" />
   <link rel="stylesheet" href="/src/css/components.css" />
-  <link rel="stylesheet" href="/src/css/dashboard.css" />
 </head>
 <body class="carregando">
   <div class="app-container">
@@ -64,7 +63,6 @@
               </svg>
               <span>Clientes</span>
             </div>
-            <span class="nav-badge">Novo</span>
           </a>
         </li>
 
@@ -138,8 +136,8 @@
             <circle cx="11" cy="11" r="8"/>
             <line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
-          <input type="text" class="search-pill" id="globalSearchInput" placeholder="Buscar por paciente, CPF, receita ou fórmula..." />
-          <span class="search-kbd">⌘F</span>
+          <input type="text" class="search-pill" id="globalSearchInput" placeholder="Buscar cliente por nome, CPF ou telefone..." aria-label="Buscar cliente" />
+          <span class="search-kbd" title="Atalho: Ctrl + K">Ctrl K</span>
         </div>
 
         <!-- Ações do Topbar & Perfil -->
@@ -149,7 +147,7 @@
 
           <!-- Perfil do Usuário com Avatar -->
           <div class="user-profile-badge" id="userProfileBadge">
-            <div class="user-avatar">👨🏻‍⚕️</div>
+            <div class="user-avatar" id="userAvatar" aria-hidden="true"></div>
             <div class="user-info">
               <span class="user-name" id="userNameText"></span>
               <span class="user-role" id="userRoleText"></span>
@@ -175,10 +173,18 @@
                   onclick="window.appRouter.navigate('dashboard')">
             Relatórios
           </button>
-          <button class="btn btn-primary" id="btnNovoAtendimento" onclick="window.appRouter.navigate('clientes')">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Novo Atendimento
-          </button>
+          <div class="menu-novo">
+            <button class="btn btn-primary" id="btnNovoAtendimento" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="menuNovoAtendimento">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Novo Atendimento
+            </button>
+            <div class="menu-novo-lista" id="menuNovoAtendimento" role="menu" hidden>
+              <button type="button" role="menuitem" data-novo="manipulacoes">🧪 Nova manipulação</button>
+              <button type="button" role="menuitem" data-novo="exames">🩺 Registrar exames</button>
+              <button type="button" role="menuitem" data-novo="receitas">💊 Nova receita</button>
+              <button type="button" role="menuitem" data-novo="clientes">👤 Novo cliente</button>
+            </div>
+          </div>
         </div>
       </section>
 
