@@ -26,7 +26,7 @@ describe('cadastro rápido na tela de Clientes', () => {
     await vi.waitFor(() => expect(ler('clientes')).toHaveLength(1));
     expect(ler('clientes')[0]).toMatchObject({ nome: 'José da Silva', telefone: '(79) 98888-7777', cpf: null, rg: null });
     await vi.waitFor(() => expect(c.textContent).toContain('José da Silva'));
-    expect(c.textContent).toContain('Cadastro incompleto');
+    expect(c.textContent).not.toContain('incompleto');   // sem aviso de cadastro incompleto
   });
 
   it.each([
@@ -57,12 +57,12 @@ describe('cadastro rápido na tela de Clientes', () => {
     expect(ler('clientes')[0].telefone).toBe('(79) 3211-4455');
   });
 
-  it('completar o cadastro depois destaca o que falta e salva endereço em partes', async () => {
+  it('editar depois permite completar os dados e salva o endereço em partes', async () => {
     guardar('clientes', [{ id: 1, nome: 'Ana', telefone: '(79) 99999-0000' }]);
     const c = await montar('../src/js/views/clientes.js', 'renderClientes');
     c.querySelector('[data-acao="editar"]').click();
-    expect(sobreposto().querySelector('.modal-title').textContent).toBe('Completar Cadastro');
-    expect(fc('cpf').classList.contains('campo-pendente')).toBe(true);
+    expect(sobreposto().querySelector('.modal-title').textContent).toBe('Editar Cliente');
+    expect(sobreposto().querySelector('.campo-pendente')).toBeNull();
     fc('cpf').value = '52998224725';
     fc('cep').value = '49000000';
     fc('endereco').value = 'Rua A';
@@ -88,7 +88,7 @@ describe('cadastro rápido e complemento durante o atendimento', () => {
     await vi.waitFor(() => expect(campo('manip_paciente').readOnly).toBe(true));
     expect(campo('manip_paciente').value).toBe('Paciente Novo');
     expect(campo('manip_formula').value).toBe('Minoxidil 5%'); // o pedido aberto não se perde
-    expect(document.querySelector('.aviso-cadastro').textContent).toContain('Cadastro incompleto');
+    expect(document.querySelector('.paciente-card').textContent).not.toContain('incompleto');
     expect(ler('clientes')).toHaveLength(1);
   });
 
@@ -100,18 +100,14 @@ describe('cadastro rápido e complemento durante o atendimento', () => {
     expect(fc('nome').value).toBe('');
   });
 
-  it('"Completar agora" abre o complemento e atualiza o cartão do paciente', async () => {
+  it('o cartão do paciente mostra a alergia e não mostra aviso nem botão de cadastro incompleto', async () => {
     guardar('clientes', [{ id: 1, nome: 'Ana Souza', telefone: '(79) 99999-0000', alergia: 'AAS' }]);
     await montar('../src/js/views/manipulacoes.js', 'renderManipulacoes');
     campo('btnAbrirModalManip').click();
     await digitarEEscolher(campo('manip_paciente'), 'ana', 'Ana Souza');
     expect(document.querySelector('.alerta-alergia').textContent).toContain('AAS');
-    document.querySelector('[data-completar]').click();
-    expect(sobreposto().querySelector('.modal-title').textContent).toBe('Completar Cadastro');
-    fc('rg').value = '123';
-    salvarCliente();
-    await vi.waitFor(() => expect(document.querySelector('.paciente-card').textContent).toContain('123'));
-    expect(ler('clientes')[0].rg).toBe('123');
+    expect(document.querySelector('[data-completar]')).toBeNull();
+    expect(document.querySelector('.paciente-card').textContent).not.toMatch(/incompleto|Completar/);
   });
 
   it('cancelar o cadastro rápido volta ao pedido sem criar cliente', async () => {

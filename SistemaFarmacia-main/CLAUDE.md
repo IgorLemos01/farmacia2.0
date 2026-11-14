@@ -200,8 +200,9 @@ trazem "Emitido por" com nome, cargo e CRF do usuário logado.
   CPF antigo fora do padrão não é revalidado se não mudar.
 - A API devolve `cadastro_completo`, `campos_pendentes` e `endereco_completo`.
 - Nas telas de Manipulação, Exames e Receitas o paciente é escolhido por busca (`src/js/seletorPaciente.js`):
-  mostra o **alerta de alergia** em destaque, tem "+ Cadastrar novo cliente" (cadastro rápido por cima do pedido) e
-  "Completar agora" quando faltam dados. O formulário de cliente é um só: `src/js/formCliente.js`.
+  mostra o **alerta de alergia** em destaque e tem "+ Cadastrar novo cliente" (cadastro rápido por cima do pedido).
+  Não há aviso de "cadastro incompleto" na tela (pedido do cliente); os dados são completados pelo botão de editar
+  em Clientes. O formulário de cliente é um só: `src/js/formCliente.js`.
 - Validações iguais no backend (`app/utils.py`) e no frontend (`src/js/validacao.js`).
 
 ## Endpoints do Catálogo de Exames

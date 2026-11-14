@@ -3,7 +3,7 @@
 // ============================================================
 
 import { api } from '../api.js';
-import { abrirFormularioCliente, seloCadastro } from '../formCliente.js';
+import { abrirFormularioCliente } from '../formCliente.js';
 import { formatarDataBR } from '../pdf.js';
 import { botoesAcoes, confirmarEExcluir, escapeHtml as esc, formatarMoeda, ligarAcoes } from '../utils.js';
 import { SEXOS } from '../validacao.js';
@@ -50,7 +50,6 @@ export async function renderClientes(container, searchTerm = '') {
                           <div>
                             <div style="font-weight: 700; color: var(--text-title);">${esc(c.nome)}</div>
                             <div style="font-size: 0.75rem; color: var(--text-muted);">${esc(c.email || '')}</div>
-                            ${seloCadastro(c)}
                           </div>
                         </div>
                       </td>
@@ -107,7 +106,7 @@ export async function renderClientes(container, searchTerm = '') {
   ligarAcoes(container, {
     editar: async id => {
       const cliente = porId(id);
-      if (await abrirFormularioCliente({ modo: cliente?.cadastro_completo ? 'editar' : 'completar', cliente })) await recarregar();
+      if (await abrirFormularioCliente({ modo: 'editar', cliente })) await recarregar();
     },
     excluir: id => confirmarEExcluir({
       mensagem: `Excluir o cadastro de ${porId(id)?.nome || 'este cliente'}? Esta ação não pode ser desfeita.`,
@@ -141,7 +140,6 @@ export async function renderClientes(container, searchTerm = '') {
           <div>
             <h3 style="font-size: 1.2rem; font-weight: 800; color: var(--text-title);">${esc(c.nome)}</h3>
             <span style="font-size: 0.78rem; color: var(--text-muted); font-family: monospace;">CPF: ${esc(c.cpf || '—')} • RG: ${esc(c.rg || '—')}</span>
-            <div style="margin-top: 4px;">${seloCadastro(c)}</div>
           </div>
         </div>
         <button class="modal-close" onclick="document.getElementById('drawerDossie').classList.remove('active')">&times;</button>

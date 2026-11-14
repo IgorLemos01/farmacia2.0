@@ -10,7 +10,7 @@
 import { api } from './api.js';
 import { escapeHtml as esc } from './utils.js';
 import {
-  aplicarMascara, CAMPOS_COMPLEMENTARES, camposPendentes, mascaraCep, mascaraCpf, mascaraTelefone,
+  aplicarMascara, mascaraCep, mascaraCpf, mascaraTelefone,
   SEXOS, UFS, validarCliente,
 } from './validacao.js';
 
@@ -23,7 +23,6 @@ const TITULOS = {
   novo: 'Novo Cliente',
   rapido: 'Cadastro Rápido',
   editar: 'Editar Cliente',
-  completar: 'Completar Cadastro',
 };
 
 function html(modo) {
@@ -35,9 +34,7 @@ function html(modo) {
       </div>
       <form novalidate>
         <p class="form-dica-topo">
-          ${modo === 'completar'
-            ? 'Preencha o que o cliente tiver em mãos agora. Os campos destacados ainda estão em branco; nada aqui é obrigatório.'
-            : 'Só <strong>nome</strong> e <strong>WhatsApp</strong> são obrigatórios. Documentos e endereço podem ficar para o próximo atendimento.'}
+          Só <strong>nome</strong> e <strong>WhatsApp</strong> são obrigatórios. Documentos e endereço podem ficar para o próximo atendimento.
         </p>
         <div class="form-grid">
           <div class="form-group form-group-full">
@@ -54,7 +51,7 @@ function html(modo) {
           </div>
         </div>
 
-        <details class="secao-opcional" ${modo === 'editar' || modo === 'completar' ? 'open' : ''}>
+        <details class="secao-opcional" ${modo === 'editar' ? 'open' : ''}>
           <summary>Dados complementares <small>(opcionais)</small></summary>
           <div class="form-grid">
             <div class="form-group">
@@ -122,7 +119,7 @@ function html(modo) {
 
         <div class="form-acoes">
           <button type="button" class="btn btn-secondary" data-fechar>Cancelar</button>
-          <button type="submit" class="btn btn-primary" data-salvar>${modo === 'editar' || modo === 'completar' ? 'Salvar Alterações' : 'Salvar Cadastro'}</button>
+          <button type="submit" class="btn btn-primary" data-salvar>${modo === 'editar' ? 'Salvar Alterações' : 'Salvar Cadastro'}</button>
         </div>
       </form>
     </div>`;
@@ -132,8 +129,8 @@ function html(modo) {
  * Abre o formulário de cliente por cima da tela atual.
  *
  * @param {object}  opcoes
- * @param {'novo'|'rapido'|'editar'|'completar'} [opcoes.modo='novo']
- * @param {object}  [opcoes.cliente]      Cliente a editar/completar.
+ * @param {'novo'|'rapido'|'editar'} [opcoes.modo='novo']
+ * @param {object}  [opcoes.cliente]      Cliente a editar.
  * @param {string}  [opcoes.nomeInicial]  Texto já digitado na busca (cadastro rápido).
  * @returns {Promise<object|null>} O cliente salvo, ou null se cancelou.
  */
@@ -163,11 +160,6 @@ export function abrirFormularioCliente({ modo = 'novo', cliente = null, nomeInic
       } else {
         campo('nome').value = nomeInicial;
       }
-    }
-
-    if (modo === 'completar') {
-      const pendentes = Object.keys(CAMPOS_COMPLEMENTARES).filter(c => !cliente?.[c]);
-      pendentes.forEach(c => campo(c).classList.add('campo-pendente'));
     }
 
     let terminado = false;
@@ -213,17 +205,8 @@ export function abrirFormularioCliente({ modo = 'novo', cliente = null, nomeInic
 
     requestAnimationFrame(() => {
       overlay.classList.add('active');
-      const primeiro = modo === 'completar'
-        ? overlay.querySelector('.campo-pendente') || campo('nome')
-        : (campo('nome').value ? campo('telefone') : campo('nome'));
+      const primeiro = campo('nome').value ? campo('telefone') : campo('nome');
       primeiro.focus();
     });
   });
-}
-
-/** Etiqueta "Cadastro incompleto" com a lista do que falta (para tabelas e cartões). */
-export function seloCadastro(cliente) {
-  const pendentes = cliente?.campos_pendentes ?? camposPendentes(cliente);
-  if (!pendentes.length) return '';
-  return `<span class="badge badge-warning" title="Falta: ${esc(pendentes.join(', '))}">Cadastro incompleto</span>`;
 }

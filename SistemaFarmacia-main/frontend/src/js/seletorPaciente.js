@@ -4,7 +4,6 @@
 //  - Busca o paciente por nome, CPF ou telefone (sem limite de 50 da lista).
 //  - Mostra em destaque o ALERTA DE ALERGIA do cliente.
 //  - Cliente novo? "+ Cadastrar" abre o cadastro rápido (nome + WhatsApp).
-//  - Cadastro incompleto? Oferece completar agora, sem perder o pedido aberto.
 // ============================================================
 
 import { api } from './api.js';
@@ -12,7 +11,6 @@ import { criarAutocomplete } from './autocomplete.js';
 import { abrirFormularioCliente } from './formCliente.js';
 import { formatarDataBR } from './pdf.js';
 import { escapeHtml as esc } from './utils.js';
-import { camposPendentes } from './validacao.js';
 
 /**
  * @param {object} opcoes
@@ -32,7 +30,6 @@ export function criarSeletorPaciente({ raiz, id, aoMudar = () => {} }) {
 
   function desenhar() {
     const p = paciente;
-    const pendentes = p.campos_pendentes ?? camposPendentes(p);
     cartao.hidden = false;
     cartao.innerHTML = `
       <div class="paciente-card-topo">
@@ -49,18 +46,9 @@ export function criarSeletorPaciente({ raiz, id, aoMudar = () => {} }) {
         <span><b>CPF:</b> ${esc(p.cpf || '—')}</span>
         <span><b>RG:</b> ${esc(p.rg || '—')}</span>
         <span><b>Nascimento:</b> ${esc(formatarDataBR(p.data_nascimento) || '—')}</span>
-      </div>
-      ${pendentes.length ? `
-        <div class="aviso-cadastro">
-          <span>Cadastro incompleto — falta: ${esc(pendentes.join(', '))}.</span>
-          <button type="button" class="btn btn-secondary btn-sm" data-completar>Completar agora</button>
-        </div>` : ''}`;
+      </div>`;
 
     cartao.querySelector('[data-trocar]')?.addEventListener('click', () => limpar());
-    cartao.querySelector('[data-completar]')?.addEventListener('click', async () => {
-      const salvo = await abrirFormularioCliente({ modo: 'completar', cliente: paciente });
-      if (salvo) definir(salvo, { podeTrocar });
-    });
   }
 
   function definir(cliente, opcoes = {}) {

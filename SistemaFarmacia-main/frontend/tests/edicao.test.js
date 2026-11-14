@@ -37,7 +37,7 @@ describe('clientes', () => {
     const c = await montar('../src/js/views/clientes.js', 'renderClientes');
 
     c.querySelector('[data-acao="editar"]').click();
-    expect(document.querySelector('.modal-sobreposto .modal-title').textContent).toBe('Completar Cadastro'); // falta CEP, bairro...
+    expect(document.querySelector('.modal-sobreposto .modal-title').textContent).toBe('Editar Cliente');
     expect(fc('nome').value).toBe('Ana Souza');
     expect(fc('data_nascimento').value).toBe('1990-01-01');
 
